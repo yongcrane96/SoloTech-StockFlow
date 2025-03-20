@@ -12,8 +12,7 @@ import org.springframework.stereotype.Service;
  */
 @Entity
 @Table(name = "orders")
-@Getter
-@Setter
+@Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
