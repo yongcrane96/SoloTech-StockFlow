@@ -5,13 +5,11 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="3bd768d3-675e-4af9-97e8-9113c8278ece" name="Default Changelist" comment="">
-      <change afterPath="$PROJECT_DIR$/src/main/java/SoloTech/StockFlow/order/controller/OrderController.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/SoloTech/StockFlow/order/dto/OrderDto.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/SoloTech/StockFlow/order/entity/Order.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/SoloTech/StockFlow/order/repository/OrderRepository.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/SoloTech/StockFlow/order/service/OrderService.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/build.gradle" beforeDir="false" afterPath="$PROJECT_DIR$/build.gradle" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/resources/application.properties" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/application.yml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/SoloTech/StockFlow/order/controller/OrderController.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/SoloTech/StockFlow/order/controller/OrderController.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/SoloTech/StockFlow/order/entity/Order.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/SoloTech/StockFlow/order/entity/Order.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/SoloTech/StockFlow/order/repository/OrderRepository.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/SoloTech/StockFlow/order/repository/OrderRepository.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/SoloTech/StockFlow/order/service/OrderService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/SoloTech/StockFlow/order/service/OrderService.java" afterDir="false" />
     </list>
     <list id="886c93de-7e0f-415a-bfb7-d6478e21d56b" name="dev- 주문 관련 생성 로직 개발" comment="" />
     <option name="SHOW_DIALOG" value="false" />
@@ -78,6 +76,14 @@
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
     <option name="RESET_MODE" value="MIXED" />
   </component>
+  <component name="GitSEFilterConfiguration">
+    <file-type-list>
+      <filtered-out-file-type name="LOCAL_BRANCH" />
+      <filtered-out-file-type name="REMOTE_BRANCH" />
+      <filtered-out-file-type name="TAG" />
+      <filtered-out-file-type name="COMMIT_BY_MESSAGE" />
+    </file-type-list>
+  </component>
   <component name="ProjectId" id="2uDdiR51522ZhcGVy1Lp9tU0LFh" />
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
@@ -92,7 +98,7 @@
     <property name="RunOnceActivity.ShowReadmeOnStart" value="true" />
     <property name="WebServerToolWindowFactoryState" value="false" />
     <property name="aspect.path.notification.shown" value="true" />
-    <property name="last_opened_file_path" value="$PROJECT_DIR$" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$/../sfep-fems-backend" />
     <property name="node.js.detected.package.eslint" value="true" />
     <property name="node.js.detected.package.tslint" value="true" />
     <property name="node.js.selected.package.eslint" value="(autodetect)" />
@@ -190,6 +196,7 @@
       <workItem from="1742294515055" duration="2351000" />
       <workItem from="1742296891615" duration="954000" />
       <workItem from="1742297880725" duration="483000" />
+      <workItem from="1742453482202" duration="2852000" />
     </task>
     <servers />
   </component>

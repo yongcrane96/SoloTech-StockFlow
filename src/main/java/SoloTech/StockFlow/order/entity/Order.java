@@ -2,7 +2,6 @@ package SoloTech.StockFlow.order.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
-import org.springframework.stereotype.Service;
 
 /**
  * 주문 객체
