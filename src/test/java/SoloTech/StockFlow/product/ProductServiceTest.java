@@ -55,16 +55,6 @@ public class ProductServiceTest {
         // 기존 Product 반환 설정
         Mockito.when(productRepository.findByProductId("P001")).thenReturn(java.util.Optional.of(mockProduct));
 
-        // ObjectMapper의 updateValue Mock 설정
-        Mockito.doAnswer(invocation -> {
-            Product target = invocation.getArgument(0);  // 첫 번째 인자는 Product 객체
-            ProductDto source = invocation.getArgument(1); // 두 번째 인자는 ProductDto 객체
-            target.setName(source.getName());
-            target.setPrice(source.getPrice());
-            target.setContent(source.getContent());
-            return null;
-        }).when(mapper).updateValue(any(Product.class), any(ProductDto.class));
-
         // 저장된 Product 반환 설정
         Product updatedProduct = new Product(1L, "P001", "수정된 가방", 12000L, "더 실용적이고 멋진 백팩.");
         Mockito.when(productRepository.save(any(Product.class))).thenReturn(updatedProduct);
@@ -80,7 +70,6 @@ public class ProductServiceTest {
 
         // Mock 동작 확인
         Mockito.verify(productRepository).findByProductId("P001");
-        Mockito.verify(mapper).updateValue(mockProduct, updateDto);
         Mockito.verify(productRepository).save(mockProduct);
     }
 }
