@@ -7,8 +7,8 @@ server:
 
     datasource: ## 띄어쓰기 해야됌
       url: jdbc:mysql://localhost:3306/test
-      username: root
-      password: my-secret-pw
+      username: test
+      password: test
       driver-class-name: com.mysql.cj.jdbc.Driver
 
   jpa:
