@@ -23,9 +23,6 @@ public class ProductServiceTest {
     @Mock
     private ProductRepository productRepository;
 
-    @Mock
-    private ObjectMapper mapper;
-
     @InjectMocks
     private ProductService productService;
 
