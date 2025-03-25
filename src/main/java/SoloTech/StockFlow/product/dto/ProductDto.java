@@ -13,10 +13,12 @@ import lombok.Data;
 @Data
 @AllArgsConstructor
 public class ProductDto {
-    @Schema(description = "상점명", example = "")
+    @Schema(description = "상품명", example = "")
     private String name;
 
     @Schema(description = "상품 가격", example = "")
     private Long price;
 
+    @Schema(description = "상품 상세설명", example = "")
+    private String content;
 }
