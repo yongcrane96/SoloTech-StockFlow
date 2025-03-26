@@ -1,15 +1,15 @@
 server:
   port: 8000
 
-  spring:
-    application:
-      name: SoloTech-StockFlow
+spring:
+  application:
+    name: SoloTech-StockFlow
 
-    datasource: ## 띄어쓰기 해야됌
-      url: jdbc:mysql://localhost:3306/test
-      username: test
-      password: test
-      driver-class-name: com.mysql.cj.jdbc.Driver
+  datasource:
+    url: jdbc:mysql://localhost:3306/test
+    username: test
+    password: test
+    driver-class-name: com.mysql.cj.jdbc.Driver
 
   jpa:
     hibernate:
