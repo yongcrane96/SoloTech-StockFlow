@@ -30,7 +30,7 @@ public class StockServiceTest {
     @Test
     void getStockTest(){
         Stock mockStock = new Stock(1L, "S001", "W001", "P001", 100L);
-        Mockito.when(stockRepository.findByStockId(any(String.class))).thenReturn(java.util.Optional.of(mockStock));
+        Mockito.when(stockRepository.findByStockIdAndDeletedFalse(any(String.class))).thenReturn(java.util.Optional.of(mockStock));
 
         Stock result = stockService.getStock("S001");
 
@@ -43,7 +43,7 @@ public class StockServiceTest {
     void decreaseStockSuccessTest(){
         // 재고가 충분히 있을 때 감소하는지 확인하는 테스트
         Stock mockStock = new Stock(1L, "S001", "W001", "P001", 100L); // 초기 재고 100
-        Mockito.when(stockRepository.findByStockId("S001")).thenReturn(java.util.Optional.of(mockStock));
+        Mockito.when(stockRepository.findByStockIdAndDeletedFalse("S001")).thenReturn(java.util.Optional.of(mockStock));
         Mockito.when(stockRepository.save(any(Stock.class))).thenReturn(mockStock); // 저장 후 mockStock 반환
 
         // 테스트 실행
@@ -57,7 +57,7 @@ public class StockServiceTest {
     void decreaseStockInsufficientTest(){
         // 재고가 부족할 때 예외 발생 확인
         Stock mockStock = new Stock(1L, "S001", "W001", "P001", 100L); // 초기 재고 100
-        Mockito.when(stockRepository.findByStockId("S001")).thenReturn(java.util.Optional.of(mockStock));
+        Mockito.when(stockRepository.findByStockIdAndDeletedFalse("S001")).thenReturn(java.util.Optional.of(mockStock));
 
         // 테스트 실행 & 예외 발생 확인
         RuntimeException exception = assertThrows(RuntimeException.class, () ->{

@@ -32,7 +32,7 @@ public class StockService {
     }
 
     public Stock getStock(String stockId) {
-        return stockRepository.findByStockId(stockId)
+        return stockRepository.findByStockIdAndDeletedFalse(stockId)
                 .orElseThrow(() -> new RuntimeException("StockId not found : " + stockId));
     }
 
@@ -45,7 +45,7 @@ public class StockService {
 
     @Transactional
     public Stock decreaseStock(String stockId, Long quantity) {
-        Stock stock = stockRepository.findByStockId(stockId)
+        Stock stock = stockRepository.findByStockIdAndDeletedFalse(stockId)
                 .orElseThrow(() -> new RuntimeException("Stock not found: " + stockId));
         if (!stock.decrease(quantity)) throw new RuntimeException("The quantity is larger than the stock: " + stockId);
 
@@ -53,8 +53,9 @@ public class StockService {
     }
 
     public void deleteStock(String stockId) {
-        Stock stock = stockRepository.findByStockId(stockId)
+        Stock stock = stockRepository.findByStockIdAndDeletedFalse(stockId)
                 .orElseThrow(() -> new RuntimeException("StockId not found : " + stockId));
-        stockRepository.delete(stock);
+        stock.setDeleted(true);
+        stockRepository.save(stock);
     }
 }
