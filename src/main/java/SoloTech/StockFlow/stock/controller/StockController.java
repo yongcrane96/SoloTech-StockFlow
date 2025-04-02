@@ -1,6 +1,7 @@
 package SoloTech.StockFlow.stock.controller;
 
 
+import SoloTech.StockFlow.common.controller.BaseRestController;
 import SoloTech.StockFlow.stock.dto.StockDto;
 import SoloTech.StockFlow.stock.entity.Stock;
 import SoloTech.StockFlow.stock.service.StockService;
@@ -15,7 +16,7 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/stock")
 @RequiredArgsConstructor
-public class StockController {
+public class StockController extends BaseRestController {
 
     private final StockService stockService;
 
@@ -25,15 +26,14 @@ public class StockController {
     }
 
     @GetMapping("{stockId}")
-    public ResponseEntity<Stock> getStock(@PathVariable String stockId){
+    public ResponseEntity<?> getStock(@PathVariable String stockId){
         log.info("Get stock by id: {}", stockId);
-        try{
             Stock stock = stockService.getStock(stockId);
-            return ResponseEntity.ok(stock);
-        }catch (RuntimeException ex){
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(null);
-        }
+
+            if(stock == null){
+                return getErrorResponse("재고를 찾을 수 없습니다: " + stockId);
+            }
+            return getOkResponse(stock);
     }
 
     @PutMapping("{stockId}")
