@@ -98,7 +98,9 @@ public class StoreService {
 
         // Redis, 로컬 캐시에 갱신
         redisTemplate.opsForValue().set(cacheKey, savedStore);
-        localCache.put(cacheKey, savedStore);
+        if (localCache.getIfPresent(cacheKey) == null) {
+            localCache.put(cacheKey, savedStore);
+        }
 
         // 다른 서버 인스턴스 캐시 무효화를 위해 메시지 발행
         // 메시지 형식: "Updated store-store:xxxx" 로 가정
