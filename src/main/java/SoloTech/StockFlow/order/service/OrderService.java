@@ -8,6 +8,7 @@ import cn.hutool.core.lang.Snowflake;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.benmanes.caffeine.cache.Cache;
+import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -97,12 +98,16 @@ public class OrderService {
 
     @Transactional
     public Order updateOrder(String orderId, OrderDto dto) throws JsonMappingException {
-        Order order = this.readOrder(orderId);
+        Order order = orderRepository.findByOrderId(orderId)
+                .orElseThrow(()-> new EntityNotFoundException("Order not found: " + orderId));
+
         mapper.updateValue(order, dto);
         Order savedOrder =  orderRepository.save(order);
         String cacheKey = ORDER_KEY_PREFIX + savedOrder.getOrderId();
 
-        localCache.put(cacheKey, savedOrder);
+        if (localCache.getIfPresent(cacheKey) == null) {
+            localCache.put(cacheKey, savedOrder);
+        }
 
         // 다른 서버 인스턴스 캐시 무효화를 위해 메시지 발행
         // 메시지 형식: "Updated order-order:xxxx" 로 가정
