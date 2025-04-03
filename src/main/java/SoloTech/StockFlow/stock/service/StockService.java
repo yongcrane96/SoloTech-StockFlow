@@ -1,6 +1,7 @@
 package SoloTech.StockFlow.stock.service;
 
 import SoloTech.StockFlow.cache.CachePublisher;
+import SoloTech.StockFlow.order.entity.Order;
 import SoloTech.StockFlow.order.service.OrderService;
 import SoloTech.StockFlow.stock.dto.StockDto;
 import SoloTech.StockFlow.stock.entity.Stock;
@@ -9,12 +10,15 @@ import cn.hutool.core.lang.Snowflake;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.benmanes.caffeine.cache.Cache;
+import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
+
+import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
@@ -59,9 +63,9 @@ public class StockService {
     public Stock getStock(String stockId) {
         String cacheKey = STOCK_KEY_PREFIX + stockId;
 
-        Stock cachedStock = (Stock) localCache.getIfPresent(STOCK_KEY_PREFIX);
+        Stock cachedStock = (Stock) localCache.getIfPresent(cacheKey);
         if(cachedStock != null){
-            log.info("[LocalCache] Hit for key={}", STOCK_KEY_PREFIX);
+            log.info("[LocalCache] Hit for key={}", cacheKey);
             return cachedStock;
         }
 
@@ -80,25 +84,34 @@ public class StockService {
 
         // 캐시에 저장
         redisTemplate.opsForValue().set(cacheKey, dbStock);
-        localCache.put(STOCK_KEY_PREFIX, dbStock);
+        localCache.put(cacheKey, dbStock);
 
         return dbStock;
     }
 
     @Transactional
     public Stock updateStock(String stockId, StockDto dto) throws JsonMappingException {
-        Stock stock = this.getStock(stockId);
-        mapper.updateValue(stock, dto);
-        Stock savedStock = stockRepository.save(stock);
+        // Fetch stock from repository
+        Stock stock = stockRepository.findByStockId(stockId)
+                .orElseThrow(() -> new EntityNotFoundException("Stock not found: " + stockId));
 
+        log.info("Before update: stock={}, dto={}", stock.getStock(), dto.getStock());
+
+        // Update stock using mapper
+        mapper.updateValue(stock, dto);
+
+        log.info("After mapping: stock={}", stock.getStock());
+
+        // Save updated stock in repository
+        Stock savedStock = stockRepository.save(stock);
         String cacheKey = STOCK_KEY_PREFIX + savedStock.getStockId();
 
-        // Redis, 로컬 캐시에 갱신
+        // Always update cache regardless of condition
+        log.info("Updating stock in Redis and local cache");
         redisTemplate.opsForValue().set(cacheKey, savedStock);
         localCache.put(cacheKey, savedStock);
 
-        // 다른 서버 인스턴스 캐시 무효화를 위해 메시지 발행
-        // 메시지 형식: "Updated stock-stock:xxxx" 로 가정
+        // Publish sync message
         String message = "Updated stock-" + cacheKey;
         cachePublisher.publish("cache-sync", message);
 
