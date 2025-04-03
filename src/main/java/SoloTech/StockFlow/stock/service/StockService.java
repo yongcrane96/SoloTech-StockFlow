@@ -13,6 +13,7 @@ import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -28,6 +29,8 @@ public class StockService {
 
     // 로컬 캐시 (Caffeine)
     private final Cache<String, Object> localCache;
+
+    private final RedisTemplate<String, Object> redisTemplate;
 
     // 메시지 발행 (Pub/Sub) 컴포넌트
     private final CachePublisher cachePublisher;
@@ -45,6 +48,7 @@ public class StockService {
 
         String cacheKey = STOCK_KEY_PREFIX + savedStock.getStockId();
 
+        redisTemplate.opsForValue().set(cacheKey, savedStock);
         // 로컬 캐시 저장
         localCache.put(cacheKey, savedStock);
 
@@ -53,15 +57,29 @@ public class StockService {
     }
 
     public Stock getStock(String stockId) {
-        Stock cacheStock = (Stock) localCache.getIfPresent(STOCK_KEY_PREFIX);
+        String cacheKey = STOCK_KEY_PREFIX + stockId;
 
-        if(cacheStock != null){
+        Stock cachedStock = (Stock) localCache.getIfPresent(STOCK_KEY_PREFIX);
+        if(cachedStock != null){
             log.info("[LocalCache] Hit for key={}", STOCK_KEY_PREFIX);
-            return cacheStock;
+            return cachedStock;
         }
+
+        // Redis 캐시 확인
+        cachedStock = (Stock) redisTemplate.opsForValue().get(cacheKey);
+        if (cachedStock != null) {
+            log.info("[RedisCache] Hit for key={}", cacheKey);
+            // 로컬 캐시에 다시 저장
+            localCache.put(cacheKey, cachedStock);
+            return cachedStock;
+        }
+
+        // DB 조회
         Stock dbStock = stockRepository.findByStockId(stockId)
                 .orElseThrow(() -> new RuntimeException("StockId not found : " + stockId));
 
+        // 캐시에 저장
+        redisTemplate.opsForValue().set(cacheKey, dbStock);
         localCache.put(STOCK_KEY_PREFIX, dbStock);
 
         return dbStock;
@@ -72,8 +90,11 @@ public class StockService {
         Stock stock = this.getStock(stockId);
         mapper.updateValue(stock, dto);
         Stock savedStock = stockRepository.save(stock);
+
         String cacheKey = STOCK_KEY_PREFIX + savedStock.getStockId();
 
+        // Redis, 로컬 캐시에 갱신
+        redisTemplate.opsForValue().set(cacheKey, savedStock);
         localCache.put(cacheKey, savedStock);
 
         // 다른 서버 인스턴스 캐시 무효화를 위해 메시지 발행
@@ -96,8 +117,7 @@ public class StockService {
 
         // 캐시 키 생성
         String cacheKey = STOCK_KEY_PREFIX + stockId;
-
-        // 1) 로컬 캐시 갱신
+        redisTemplate.opsForValue().set(cacheKey, updatedStock);
         localCache.put(cacheKey, updatedStock);
 
         // 3) 다른 서버들도 캐시를 무효화하도록 메시지 발행
@@ -119,6 +139,7 @@ public class StockService {
 
         // 현재 서버(로컬 캐시 + Redis)에서도 삭제
         localCache.invalidate(cacheKey);
+        redisTemplate.delete(cacheKey);
 
         // 다른 서버들도 캐시를 무효화하도록 메시지 발행
         // 메시지 형식: "Deleted stock-stock:xxxx" 로 가정

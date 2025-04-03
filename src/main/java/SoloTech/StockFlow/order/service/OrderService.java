@@ -12,7 +12,10 @@ import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
+
+import java.time.Duration;
 
 /**
  * 주문 서비스
@@ -33,6 +36,7 @@ public class OrderService {
 
     private static final String ORDER_KEY_PREFIX = "order:";
 
+    private final RedisTemplate redisTemplate;
     // 로컬 캐시 (Caffeine)
     private final Cache<String, Object> localCache;
 
@@ -50,7 +54,11 @@ public class OrderService {
         order.setOrderId(String.valueOf(snowflakeId));
         Order savedOrder = orderRepository.saveAndFlush(order);
 
+        //캐시 키
         String cacheKey = ORDER_KEY_PREFIX + savedOrder.getOrderId();
+
+        // Redis 캐시 저장
+        redisTemplate.opsForValue().set(cacheKey, savedOrder, Duration.ofHours(1));
 
         // 로컬 캐시 저장
         localCache.put(cacheKey, savedOrder);
@@ -60,11 +68,20 @@ public class OrderService {
     }
 
     public Order readOrder(String orderId) {
-        // 1) 로컬 캐시 확인
-        Order cachedOrder = (Order) localCache.getIfPresent(ORDER_KEY_PREFIX);
+        String cacheKey = ORDER_KEY_PREFIX + orderId;
 
+        // 1) 로컬 캐시 확인
+        Order cachedOrder = (Order) localCache.getIfPresent(cacheKey);
         if(cachedOrder != null){
-            log.info("[LocalCache] Hit for key={}", ORDER_KEY_PREFIX);
+            log.info("[LocalCache] Hit for key={}", cacheKey);
+            return cachedOrder;
+        }
+
+        // 2) Redis 캐시 확인
+        cachedOrder = (Order) redisTemplate.opsForValue().get(cacheKey);
+        if(cachedOrder != null){
+            log.info("[RedisCache] Hit for key={}", cacheKey);
+            localCache.put(cacheKey, cachedOrder);
             return cachedOrder;
         }
 
@@ -73,8 +90,8 @@ public class OrderService {
                 .orElseThrow(()->new RuntimeException("Order not found: " + orderId));
 
         // 캐시에 저장
-        localCache.put(ORDER_KEY_PREFIX, dbOrder);
-
+        redisTemplate.opsForValue().set(cacheKey, dbOrder);
+        localCache.put(cacheKey, dbOrder);
         return dbOrder;
     }
 
@@ -107,6 +124,7 @@ public class OrderService {
 
         // 현재 서버(로컬 캐시 + Redis)에서도 삭제
         localCache.invalidate(cacheKey);
+        redisTemplate.delete(cacheKey);
 
         // 다른 서버들도 캐시를 무효화하도록 메시지 발행
         // 메시지 형식: "Deleted order-order:xxxx" 로 가정

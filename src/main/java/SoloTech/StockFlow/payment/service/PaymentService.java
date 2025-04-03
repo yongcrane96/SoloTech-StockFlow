@@ -1,8 +1,6 @@
 package SoloTech.StockFlow.payment.service;
 
 import SoloTech.StockFlow.cache.CachePublisher;
-import SoloTech.StockFlow.order.entity.Order;
-import SoloTech.StockFlow.order.service.OrderService;
 import SoloTech.StockFlow.payment.dto.PaymentDto;
 import SoloTech.StockFlow.payment.entity.Payment;
 import SoloTech.StockFlow.payment.repository.PaymentRepository;
@@ -14,6 +12,7 @@ import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
 /**
@@ -35,7 +34,7 @@ public class PaymentService {
 
     // 로컬 캐시 (Caffeine)
     private final Cache<String, Object> localCache;
-
+    private final RedisTemplate<String, Object> redisTemplate;
     // 메시지 발행 (Pub/Sub) 컴포넌트
     private final CachePublisher cachePublisher;
 
@@ -50,6 +49,7 @@ public class PaymentService {
         payment.setPaymentId(String.valueOf(snowflakeId));
         Payment savedPayment = paymentRepository.saveAndFlush(payment);
         String cacheKey = PAYMENT_KEY_PREFIX + savedPayment.getOrderId();
+        redisTemplate.opsForValue().set(cacheKey, savedPayment);
 
         // 로컬 캐시 저장
         localCache.put(cacheKey, savedPayment);
@@ -59,20 +59,26 @@ public class PaymentService {
     }
 
     public Payment readPayment(String paymentId) {
+        String cacheKey = PAYMENT_KEY_PREFIX + paymentId;
 
-        Payment cachedPayment = (Payment) localCache.getIfPresent(PAYMENT_KEY_PREFIX);
-
+        Payment cachedPayment = (Payment) localCache.getIfPresent(cacheKey);
         if(cachedPayment != null){
-            log.info("[LocalCache] Hit for key={}", PAYMENT_KEY_PREFIX);
+            log.info("[LocalCache] Hit for key={}", cacheKey);
             return cachedPayment;
         }
 
+        cachedPayment = (Payment) redisTemplate.opsForValue().get(cacheKey);
+        if(cachedPayment != null){
+            localCache.put(cacheKey, cachedPayment);
+            return cachedPayment;
+        }
 
         Payment dbPayment = paymentRepository.findByPaymentId(paymentId)
                 .orElseThrow(() -> new RuntimeException("Payment not found: " + paymentId));
 
         // 캐시에 저장
-        localCache.put(PAYMENT_KEY_PREFIX, dbPayment);
+        redisTemplate.opsForValue().set(cacheKey,dbPayment);
+        localCache.put(cacheKey, dbPayment);
 
         return dbPayment;
     }
@@ -82,16 +88,17 @@ public class PaymentService {
         Payment payment = this.readPayment(paymentId);
         mapper.updateValue(payment, dto);
         Payment savedPayment = paymentRepository.save(payment);
+
+        // 캐시 키
         String cacheKey = PAYMENT_KEY_PREFIX + savedPayment.getPaymentId();
 
+        redisTemplate.opsForValue().set(cacheKey, savedPayment);
         localCache.put(cacheKey, savedPayment);
 
         // 다른 서버 인스턴스 캐시 무효화를 위해 메시지 발행
         // 메시지 형식: "Updated payment-payment:xxxx" 로 가정
         String message = "Updated payment-" + cacheKey;
         cachePublisher.publish("cache-sync", message);
-
-        log.info("Updated payment: {}, published message: {}", cacheKey, message);
 
         return savedPayment;
     }
@@ -105,6 +112,7 @@ public class PaymentService {
         String cacheKey = PAYMENT_KEY_PREFIX + paymentId;
 
         // 현재 서버(로컬 캐시 + Redis)에서도 삭제
+        redisTemplate.delete(cacheKey);
         localCache.invalidate(cacheKey);
 
         // 다른 서버들도 캐시를 무효화하도록 메시지 발행
