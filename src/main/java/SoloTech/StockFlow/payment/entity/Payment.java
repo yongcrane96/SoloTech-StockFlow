@@ -33,6 +33,7 @@ public class Payment {
     @Column(nullable = false)
     private String paymentMethod;
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private String paymentStatus;
+    private Enum paymentStatus;
 }
