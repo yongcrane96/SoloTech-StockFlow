@@ -5,11 +5,13 @@ import SoloTech.StockFlow.store.entity.Store;
 import SoloTech.StockFlow.store.repository.StoreRepository;
 import SoloTech.StockFlow.store.service.StoreService;
 import SoloTech.StockFlow.cache.CachePublisher;
+import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.benmanes.caffeine.cache.Cache;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -46,6 +48,9 @@ public class StoreServiceTest {
     @Mock
     private ValueOperations<String, Object> valueOperations; // Redis 값 조작 인터페이스 Mock
 
+    private static final String STORE_KEY_PREFIX = "store:";
+
+
     @BeforeEach
     void setUp() {
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
@@ -54,7 +59,9 @@ public class StoreServiceTest {
 
     @Test
     void getStoreTest() {
-        Store mockStore = new Store(1L, "W001", "상점", "서울시 압구정");
+        String storeId = "W001";
+        String cacheKey = STORE_KEY_PREFIX + storeId;
+        Store mockStore = new Store(1L, storeId, "상점", "서울시 압구정");
 
         when(localCache.getIfPresent(any(String.class))).thenReturn(null);
         when(valueOperations.get(any(String.class))).thenReturn(null);
@@ -66,6 +73,9 @@ public class StoreServiceTest {
         assertEquals("W001", result.getStoreId());
         assertEquals("상점", result.getStoreName());
         assertEquals("서울시 압구정", result.getAddress());
+
+        verify(valueOperations, times(1)).set(eq(cacheKey), eq(mockStore));
+        verify(localCache, times(1)).put(eq(cacheKey), eq(mockStore));
     }
 
     @Test
@@ -82,32 +92,49 @@ public class StoreServiceTest {
         assertEquals("새로운 상점", result.getStoreName());
         assertEquals("서울 강남", result.getAddress());
 
+        String cacheKey = STORE_KEY_PREFIX + result.getStoreId();
+
         verify(storeRepository).saveAndFlush(any(Store.class));
+        // Redis 및 로컬 캐시 저장 검증
+        verify(redisTemplate.opsForValue(), times(1)).set(eq(cacheKey), eq(result), any());
+        verify(localCache, times(1)).put(eq(cacheKey), eq(result));
+
     }
 
     @Test
-    void updateStoreTest() throws Exception {
+    void updateStoreTest() throws JsonMappingException {
+        // Given
         String storeId = "W002";
         Store existingStore = new Store(3L, storeId, "기존 상점", "서울 강남");
         StoreDto updateDto = new StoreDto("업데이트된 상점", "서울 강남구");
         Store updatedStore = new Store(3L, storeId, "업데이트된 상점", "서울 강남구");
+        String cacheKey = STORE_KEY_PREFIX + storeId;
+        String message = "Updated store-" + cacheKey;
 
+        // RedisTemplate과 ValueOperations 모의 객체 설정
         when(storeRepository.findByStoreId(storeId)).thenReturn(Optional.of(existingStore));
-        when(mapper.updateValue(any(Store.class), any(StoreDto.class))).thenReturn(updatedStore);
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        doNothing().when(valueOperations).set(eq(cacheKey), any(Store.class));
+        doNothing().when(cachePublisher).publish(eq("cache-sync"), eq(message));
         when(storeRepository.save(any(Store.class))).thenReturn(updatedStore);
 
+        // When
         Store result = storeService.updateStore(storeId, updateDto);
 
+        // Then
         assertNotNull(result);
         assertEquals("업데이트된 상점", result.getStoreName());
         assertEquals("서울 강남구", result.getAddress());
 
         verify(storeRepository).save(any(Store.class));
+        verify(valueOperations).set(eq(cacheKey), eq(updatedStore));
+        verify(cachePublisher).publish(eq("cache-sync"), eq(message));
     }
 
     @Test
     void deleteStoreTest() {
         String storeId = "W003";
+        String cacheKey = STORE_KEY_PREFIX + storeId;
         Store existingStore = new Store(4L, storeId, "삭제될 상점", "서울 마포");
 
         when(storeRepository.findByStoreId(storeId)).thenReturn(Optional.of(existingStore));
@@ -115,8 +142,13 @@ public class StoreServiceTest {
 
         storeService.deleteStore(storeId);
 
-        verify(storeRepository).delete(any(Store.class));
-        verify(localCache).invalidate(any(String.class));
-        verify(redisTemplate).delete(any(String.class));
+        verify(storeRepository, times(1)).delete(existingStore);
+        verify(localCache, times(1)).invalidate(cacheKey);
+        verify(redisTemplate, times(1)).delete(cacheKey);
+
+        ArgumentCaptor<String> messageCaptor = ArgumentCaptor.forClass(String.class);
+        verify(cachePublisher, times(1)).publish(eq("cache-sync"), messageCaptor.capture());
+        assertTrue(messageCaptor.getValue().contains("Deleted store-store:"));
+
     }
 }

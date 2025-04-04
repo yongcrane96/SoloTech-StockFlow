@@ -1,6 +1,7 @@
 package SoloTech.StockFlow.store.service;
 
 import SoloTech.StockFlow.cache.CachePublisher;
+import SoloTech.StockFlow.order.entity.Order;
 import SoloTech.StockFlow.order.service.OrderService;
 import SoloTech.StockFlow.store.dto.StoreDto;
 import SoloTech.StockFlow.store.entity.Store;
@@ -9,12 +10,15 @@ import cn.hutool.core.lang.Snowflake;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.benmanes.caffeine.cache.Cache;
+import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
+
+import java.time.Duration;
 
 /**
  * 상점 서비스
@@ -53,7 +57,7 @@ public class StoreService {
         Store savedStore = storeRepository.saveAndFlush(store);
 
         String cacheKey = STORE_KEY_PREFIX + savedStore.getStoreId();
-        redisTemplate.opsForValue().set(cacheKey, savedStore);
+        redisTemplate.opsForValue().set(cacheKey, savedStore, Duration.ofHours(1));
 
         // 로컬 캐시 저장
         localCache.put(cacheKey, savedStore);
@@ -91,7 +95,9 @@ public class StoreService {
 
     @Transactional
     public Store updateStore(String storeId, StoreDto dto) throws JsonMappingException {
-        Store store = this.getStore(storeId);
+        Store store = storeRepository.findByStoreId(storeId)
+                .orElseThrow(()-> new EntityNotFoundException("Store not found: " + storeId));
+
         mapper.updateValue(store,dto);
         Store savedStore = storeRepository.save(store);
         String cacheKey = STORE_KEY_PREFIX + savedStore.getStoreId();
