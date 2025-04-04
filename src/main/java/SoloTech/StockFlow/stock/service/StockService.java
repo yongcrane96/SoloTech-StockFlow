@@ -1,5 +1,6 @@
 package SoloTech.StockFlow.stock.service;
 
+import SoloTech.StockFlow.common.annotations.RedissonLock;
 import SoloTech.StockFlow.stock.dto.StockDto;
 import SoloTech.StockFlow.stock.entity.Stock;
 import SoloTech.StockFlow.stock.repository.StockRepository;
@@ -43,7 +44,14 @@ public class StockService {
         return stockRepository.save(stock);
     }
 
+    /**
+     * 재고 감소
+     *  - 동시성 제어(@RedissonLock) + DB 수정
+     *  - 캐시 갱신
+     *  - Pub/Sub 메시지 발행
+     */
     @Transactional
+    @RedissonLock(value = "'stock-' + #stockId")
     public Stock decreaseStock(String stockId, Long quantity) {
         Stock stock = stockRepository.findByStockId(stockId)
                 .orElseThrow(() -> new RuntimeException("Stock not found: " + stockId));
