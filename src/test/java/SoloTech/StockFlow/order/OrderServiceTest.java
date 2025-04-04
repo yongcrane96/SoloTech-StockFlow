@@ -75,7 +75,7 @@ public class OrderServiceTest {
         assertNotNull(createdOrder);
         assertEquals("S12345", createdOrder.getStoreId());
 
-        String cacheKey = "order:" + createdOrder.getOrderId();
+        String cacheKey = ORDER_KEY_PREFIX + createdOrder.getOrderId();
 
         // Redis 및 로컬 캐시 저장 검증
         verify(redisTemplate.opsForValue(), times(1)).set(eq(cacheKey), eq(createdOrder), any());
