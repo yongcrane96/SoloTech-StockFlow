@@ -10,6 +10,7 @@ import cn.hutool.core.lang.Snowflake;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.benmanes.caffeine.cache.Cache;
+import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -53,6 +54,7 @@ public class ProductService {
 
         // 로컬 캐시 저장
         localCache.put(cacheKey, savedProduct);
+        cachePublisher.publish("product_update", cacheKey);
 
         log.info("Created product: {}", cacheKey);
         return savedProduct;
@@ -62,9 +64,9 @@ public class ProductService {
         String cacheKey = PRODUCT_KEY_PREFIX + productId;
 
         // 1) 로컬 캐시 확인
-        Product cachedProduct = (Product) localCache.getIfPresent(PRODUCT_KEY_PREFIX);
+        Product cachedProduct = (Product) localCache.getIfPresent(cacheKey);
         if(cachedProduct != null){
-            log.info("[LocalCache] Hit for key={}", PRODUCT_KEY_PREFIX);
+            log.info("[LocalCache] Hit for key={}", cacheKey);
             return cachedProduct;
         }
 
@@ -82,14 +84,16 @@ public class ProductService {
 
         // 조회 후 캐시 저장
         redisTemplate.opsForValue().set(cacheKey, dbProduct, Duration.ofHours(1));
-        localCache.put(PRODUCT_KEY_PREFIX, dbProduct);
+        localCache.put(cacheKey, dbProduct);
 
         return dbProduct;
     }
 
     @Transactional
     public Product updateProduct(String productId, ProductDto dto) throws JsonMappingException {
-        Product product = this.getProduct(productId);
+        Product product = productRepository.findByProductId(productId)
+                .orElseThrow(() -> new EntityNotFoundException("Product not found: " + productId));
+
         log.info("Update product by id: {}", productId);
 
         mapper.updateValue(product, dto);
@@ -100,8 +104,6 @@ public class ProductService {
         redisTemplate.opsForValue().set(cacheKey, savedProduct);
         localCache.put(cacheKey, savedProduct);
 
-        // 다른 서버 인스턴스 캐시 무효화를 위해 메시지 발행
-        // 메시지 형식: "Updated product-product:xxxx" 로 가정
         String message = "Updated product-" + cacheKey;
         cachePublisher.publish("cache-sync", message);
 
