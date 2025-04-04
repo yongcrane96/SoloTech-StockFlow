@@ -5,6 +5,8 @@ import SoloTech.StockFlow.stock.dto.StockDto;
 import SoloTech.StockFlow.stock.entity.Stock;
 import SoloTech.StockFlow.stock.repository.StockRepository;
 import SoloTech.StockFlow.stock.service.StockService;
+import cn.hutool.core.lang.Snowflake;
+import java.time.Duration;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.benmanes.caffeine.cache.Cache;
@@ -14,6 +16,7 @@ import org.mockito.*;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 
+import java.time.Duration;
 import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -37,6 +40,9 @@ public class StockServiceTest {
     private CachePublisher cachePublisher;
 
     @Mock
+    private Snowflake snowflake;
+
+    @Mock
     private ObjectMapper objectMapper;
 
     @InjectMocks
@@ -54,6 +60,39 @@ public class StockServiceTest {
         doNothing().when(cachePublisher).publish(anyString(), anyString());
 
     }
+
+    @Test
+    void createStockTest() {
+        // Arrange
+        StockDto stockDto = new StockDto("store123", "product456", 100L);
+        Stock stock = new Stock();
+        stock.setStoreId(stockDto.getStoreId());
+        stock.setProductId(stockDto.getProductId());
+        stock.setStock(stockDto.getStock());
+
+        Snowflake snowflake = new Snowflake(1, 1);
+        stock.setStockId(String.valueOf(snowflake.nextId()));
+
+        when(objectMapper.convertValue(stockDto, Stock.class)).thenReturn(stock);
+        when(stockRepository.saveAndFlush(any(Stock.class))).thenReturn(stock);
+        doNothing().when(cachePublisher).publish(anyString(), anyString());
+
+        // Act
+        Stock savedStock = stockService.createStock(stockDto);
+
+        // Assert
+        assertNotNull(savedStock);
+        assertEquals(stockDto.getStoreId(), savedStock.getStoreId());
+        assertEquals(stockDto.getProductId(), savedStock.getProductId());
+        assertEquals(stockDto.getStock(), savedStock.getStock());
+
+        String cacheKey = STOCK_KEY_PREFIX + savedStock.getStockId();
+        // Redis 및 로컬 캐시 저장 검증
+        verify(redisTemplate.opsForValue(), times(1)).set(eq(cacheKey), eq(savedStock), any(Duration.class)); // Duration 추가
+        verify(localCache, times(1)).put(eq(cacheKey), eq(savedStock));
+        verify(cachePublisher).publish(anyString(), anyString());
+    }
+
     @Test
     void getStockTest() {
         String stockId = "S001";
@@ -146,7 +185,6 @@ public class StockServiceTest {
         verify(cachePublisher, times(1)).publish(eq("cache-sync"), eq(expectedMessage));
         verify(stockRepository, times(1)).save(any(Stock.class));
     }
-
 
     @Test
     void deleteStockTest() {

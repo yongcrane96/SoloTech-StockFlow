@@ -18,6 +18,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
+import java.time.Duration;
 import java.util.Objects;
 
 @Service
@@ -51,10 +52,11 @@ public class StockService {
         Stock savedStock = stockRepository.saveAndFlush(stock);
 
         String cacheKey = STOCK_KEY_PREFIX + savedStock.getStockId();
+        redisTemplate.opsForValue().set(cacheKey, savedStock, Duration.ofMinutes(10));
 
-        redisTemplate.opsForValue().set(cacheKey, savedStock);
         // 로컬 캐시 저장
         localCache.put(cacheKey, savedStock);
+        cachePublisher.publish("stock_update", cacheKey);
 
         log.info("Created order: {}", cacheKey);
         return savedStock;
