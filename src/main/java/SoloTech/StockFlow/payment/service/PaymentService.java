@@ -8,12 +8,15 @@ import cn.hutool.core.lang.Snowflake;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.benmanes.caffeine.cache.Cache;
+import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
+
+import java.time.Duration;
 
 /**
  * 결제 서비스
@@ -48,11 +51,14 @@ public class PaymentService {
 
         payment.setPaymentId(String.valueOf(snowflakeId));
         Payment savedPayment = paymentRepository.saveAndFlush(payment);
+
         String cacheKey = PAYMENT_KEY_PREFIX + savedPayment.getOrderId();
-        redisTemplate.opsForValue().set(cacheKey, savedPayment);
+
+        redisTemplate.opsForValue().set(cacheKey, savedPayment, Duration.ofHours(1));
 
         // 로컬 캐시 저장
         localCache.put(cacheKey, savedPayment);
+        cachePublisher.publish("payment_update", cacheKey);
 
         log.info("Created payment: {}", cacheKey);
         return savedPayment;
@@ -85,18 +91,17 @@ public class PaymentService {
 
     @Transactional
     public Payment updatePayment(String paymentId, PaymentDto dto) throws JsonMappingException {
-        Payment payment = this.readPayment(paymentId);
+        Payment payment = paymentRepository.findByPaymentId(paymentId)
+                .orElseThrow(() -> new EntityNotFoundException("Payment not found: " + paymentId));
+
         mapper.updateValue(payment, dto);
         Payment savedPayment = paymentRepository.save(payment);
-
         // 캐시 키
         String cacheKey = PAYMENT_KEY_PREFIX + savedPayment.getPaymentId();
 
         redisTemplate.opsForValue().set(cacheKey, savedPayment);
         localCache.put(cacheKey, savedPayment);
 
-        // 다른 서버 인스턴스 캐시 무효화를 위해 메시지 발행
-        // 메시지 형식: "Updated payment-payment:xxxx" 로 가정
         String message = "Updated payment-" + cacheKey;
         cachePublisher.publish("cache-sync", message);
 
