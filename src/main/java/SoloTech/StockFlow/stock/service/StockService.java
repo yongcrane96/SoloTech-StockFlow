@@ -1,5 +1,6 @@
 package SoloTech.StockFlow.stock.service;
 
+import SoloTech.StockFlow.common.annotations.RedissonLock;
 import SoloTech.StockFlow.cache.CachePublisher;
 import SoloTech.StockFlow.order.entity.Order;
 import SoloTech.StockFlow.order.service.OrderService;
@@ -13,6 +14,13 @@ import com.github.benmanes.caffeine.cache.Cache;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.stereotype.Service;
+
+import java.util.concurrent.TimeUnit;
+
+@Slf4j
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -29,6 +37,7 @@ public class StockService {
 
     final StockRepository stockRepository;
     final ObjectMapper mapper;
+    final RedisTemplate redisTemplate;
 
     private static final String STOCK_KEY_PREFIX = "stock:";
 
@@ -123,14 +132,27 @@ public class StockService {
         return savedStock;
     }
 
+    /**
+     * 재고 감소
+     *  - 동시성 제어(@RedissonLock) + DB 수정
+     *  - 캐시 갱신
+     *  - Pub/Sub 메시지 발행
+     */
     @Transactional
+    @RedissonLock(value = "#{'stock-' + stockId}")
     public Stock decreaseStock(String stockId, Long quantity) {
         Stock stock = stockRepository.findByStockIdAndDeletedFalse(stockId)
                 .orElseThrow(() -> new RuntimeException("Stock not found: " + stockId));
+
+        // 수량 검사
         if (!stock.decrease(quantity)) throw new RuntimeException("The quantity is larger than the stock: " + stockId);
 
         Stock updatedStock = stockRepository.save(stock);
 
+        // 캐시 갱신 및 Pub/Sub 메시지 발행
+        String cacheKey = "stock-" + stockId;
+        redisTemplate.opsForValue().set(cacheKey, updatedStock);
+        redisTemplate.convertAndSend("cache-sync", "Updated stock-" + stockId);
         // 캐시 키 생성
         String cacheKey = STOCK_KEY_PREFIX + stockId;
         redisTemplate.opsForValue().set(cacheKey, updatedStock);
