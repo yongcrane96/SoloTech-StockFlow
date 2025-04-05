@@ -1,13 +1,13 @@
 package SoloTech.StockFlow.product.controller;
 
 
+import SoloTech.StockFlow.common.controller.BaseRestController;
 import SoloTech.StockFlow.product.dto.ProductDto;
 import SoloTech.StockFlow.product.entity.Product;
 import SoloTech.StockFlow.product.service.ProductService;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import io.swagger.v3.oas.annotations.Operation;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -21,7 +21,7 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/product")
 @RequiredArgsConstructor
-public class ProductController {
+public class ProductController extends BaseRestController {
 
     private final ProductService productService;
 
@@ -35,14 +35,14 @@ public class ProductController {
     // 상품 조회
     @GetMapping("{productId}")
     @Operation(summary = "상품 조회", description = "상품 정보를 1건 조회합니다.")
-    public ResponseEntity<Product> getProduct(@PathVariable String productId){
-        try{
-            Product product = productService.getProduct(productId);
-            return ResponseEntity.ok(product);
-        } catch (RuntimeException ex) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(null);  // 404 Not Found
+    public ResponseEntity<?> getProduct(@PathVariable String productId){
+        Product product = productService.getProduct(productId);
+
+        if (product == null) {
+            return getErrorResponse("상품을 찾을 수 없습니다: " + productId);
         }
+
+        return getOkResponse(product);
     }
 
     // 상품 수정
