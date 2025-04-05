@@ -3,6 +3,7 @@ package SoloTech.StockFlow.stock.dto;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 /**
  * 재고 DTO
@@ -13,6 +14,7 @@ import lombok.Data;
 
 @Data
 @AllArgsConstructor
+@NoArgsConstructor
 public class StockDto {
     // 재고에 필요한 것들
     // 재고 수량, 창고(상점) ID, 제품 ID
