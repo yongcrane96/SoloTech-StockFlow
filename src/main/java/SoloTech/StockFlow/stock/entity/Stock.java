@@ -5,6 +5,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.SQLDelete;
+import org.hibernate.annotations.Where;
 
 /**
  * 재고 객체
@@ -15,6 +17,8 @@ import lombok.NoArgsConstructor;
 @Entity
 @Data
 @Table(name = "stocks")
+@SQLDelete(sql = "UPDATE stocks SET deleted = true WHERE id = ?") // Hibernate Soft Delete
+@Where(clause = "deleted = false") // 자동 필터링
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
@@ -33,5 +37,6 @@ public class Stock {
         return stock >= quantity && (stock -= quantity) >= 0;
     };
 
-
+    @Column(nullable = false)
+    private boolean deleted = false; // 기본값 false (소프트 삭제 플래그)
 }
