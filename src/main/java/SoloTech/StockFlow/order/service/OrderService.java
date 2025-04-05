@@ -4,6 +4,13 @@ import SoloTech.StockFlow.cache.CachePublisher;
 import SoloTech.StockFlow.order.dto.OrderDto;
 import SoloTech.StockFlow.order.entity.Order;
 import SoloTech.StockFlow.order.repository.OrderRepository;
+import SoloTech.StockFlow.payment.dto.PaymentDto;
+import SoloTech.StockFlow.payment.entity.Payment;
+import SoloTech.StockFlow.payment.service.PaymentService;
+import SoloTech.StockFlow.product.entity.Product;
+import SoloTech.StockFlow.product.service.ProductService;
+import SoloTech.StockFlow.stock.entity.Stock;
+import SoloTech.StockFlow.stock.service.StockService;
 import cn.hutool.core.lang.Snowflake;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -32,6 +39,9 @@ public class OrderService {
     private static final Logger log = LoggerFactory.getLogger(OrderService.class);
 
     private final OrderRepository orderRepository;
+    private final ProductService productService;
+    private final StockService stockService;
+    private final PaymentService paymentService;
 
     private final ObjectMapper mapper;
 
@@ -46,6 +56,28 @@ public class OrderService {
 
     @Transactional
     public Order createOrder(OrderDto dto) {
+        // 1. 상품 조회
+        Product product = productService.getProduct(dto.getProductId());
+        if (product == null) {
+            throw new RuntimeException("Product not found: " + dto.getProductId());
+        }
+
+        // 2. 재고 확인
+        Stock stock = stockService.getStock(dto.getProductId());
+        if (stock.getStock() < dto.getQuantity()) {
+            throw new RuntimeException("Insufficient stock for product: " + dto.getProductId());
+        }
+
+        // 3. 결제 처리
+        String initialPaymentStatus = "PENDING";
+        PaymentDto paymentDto = new PaymentDto(dto.getOrderId(), dto.getAmount(), dto.getPaymentMethod(), initialPaymentStatus);
+        Payment payment = paymentService.createPayment(paymentDto);
+        if (!"SUCCESS".equals(payment.getPaymentStatus())) {
+            throw new RuntimeException("Payment failed for order: " + dto.getOrderId());
+        }
+
+        stockService.decreaseStock(dto.getProductId(), dto.getQuantity());
+
         Order order = mapper.convertValue(dto, Order.class);
 
         // Snowflake ID 생성

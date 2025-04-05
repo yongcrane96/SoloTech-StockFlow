@@ -55,6 +55,8 @@ public class PaymentService {
         long snowflakeId = snowflake.nextId();
 
         payment.setPaymentId(String.valueOf(snowflakeId));
+
+        payment.setPaymentStatus("SUCCESS");
         return paymentRepository.saveAndFlush(payment);
     }
 
