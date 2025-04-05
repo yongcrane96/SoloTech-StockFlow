@@ -7,6 +7,10 @@ import SoloTech.StockFlow.payment.repository.PaymentRepository;
 import cn.hutool.core.lang.Snowflake;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.transaction.Transactional;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+
 import com.github.benmanes.caffeine.cache.Cache;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
@@ -17,6 +21,7 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
+
 
 /**
  * 결제 서비스
@@ -50,6 +55,12 @@ public class PaymentService {
         long snowflakeId = snowflake.nextId();
 
         payment.setPaymentId(String.valueOf(snowflakeId));
+        return paymentRepository.saveAndFlush(payment);
+    }
+
+    public Payment readPayment(String paymentId) {
+        return paymentRepository.findByPaymentId(paymentId)
+                .orElseThrow(() -> new RuntimeException("Payment not found: " + paymentId));
         Payment savedPayment = paymentRepository.saveAndFlush(payment);
 
         String cacheKey = PAYMENT_KEY_PREFIX + savedPayment.getOrderId();
@@ -91,6 +102,9 @@ public class PaymentService {
 
     @Transactional
     public Payment updatePayment(String paymentId, PaymentDto dto) throws JsonMappingException {
+        Payment payment = this.readPayment(paymentId);
+        mapper.updateValue(payment, dto);
+        return paymentRepository.save(payment);
         Payment payment = paymentRepository.findByPaymentId(paymentId)
                 .orElseThrow(() -> new EntityNotFoundException("Payment not found: " + paymentId));
 
