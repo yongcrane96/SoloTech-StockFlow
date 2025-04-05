@@ -39,6 +39,8 @@ dependencies {
 	implementation 'mysql:mysql-connector-java:8.0.33'
 
 	// (테스트 관련 의존성)
+	testImplementation 'org.junit.jupiter:junit-jupiter:5.9.2' // JUnit 5
+	testImplementation 'org.mockito:mockito-core:5.2.0' // Mockito
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 	// Swagger (OpenAPI)
@@ -57,6 +59,12 @@ dependencies {
 	//
 	testImplementation 'org.junit.jupiter:junit-jupiter:5.9.0'
 	testImplementation 'org.mockito:mockito-core:5.2.0' // Mockito
+
+	// Caffeine Cache: (로컬 캐싱 라이브러리)
+	implementation 'org.springframework.boot:spring-boot-starter-cache'
+	implementation 'com.github.ben-manes.caffeine:caffeine'
+	implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+	implementation 'io.lettuce:lettuce-core'
 
 
 	// Spring Boot에서 Caffeine 캐시를 사용하려면 추가
