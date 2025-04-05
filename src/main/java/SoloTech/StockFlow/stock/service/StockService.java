@@ -10,7 +10,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
+
+import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Service
@@ -19,6 +22,7 @@ public class StockService {
 
     final StockRepository stockRepository;
     final ObjectMapper mapper;
+    final RedisTemplate redisTemplate;
 
     @Transactional
     public Stock createStock(StockDto dto) {
@@ -51,13 +55,22 @@ public class StockService {
      *  - Pub/Sub 메시지 발행
      */
     @Transactional
-    @RedissonLock(value = "'stock-' + #stockId")
+    @RedissonLock(value = "#{'stock-' + stockId}")
     public Stock decreaseStock(String stockId, Long quantity) {
         Stock stock = stockRepository.findByStockId(stockId)
                 .orElseThrow(() -> new RuntimeException("Stock not found: " + stockId));
+
+        // 수량 검사
         if (!stock.decrease(quantity)) throw new RuntimeException("The quantity is larger than the stock: " + stockId);
 
-        return stockRepository.save(stock);
+        Stock updatedStock = stockRepository.save(stock);
+
+        // 캐시 갱신 및 Pub/Sub 메시지 발행
+        String cacheKey = "stock-" + stockId;
+        redisTemplate.opsForValue().set(cacheKey, updatedStock);
+        redisTemplate.convertAndSend("cache-sync", "Updated stock-" + stockId);
+
+        return updatedStock;
     }
 
     public void deleteStock(String stockId) {

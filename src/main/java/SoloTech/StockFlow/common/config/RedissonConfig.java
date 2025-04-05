@@ -8,7 +8,6 @@ import org.springframework.context.annotation.Configuration;
 
 @Configuration
 public class RedissonConfig {
-
     @Bean
     public RedissonClient redissonClient() {
         Config config = new Config();
@@ -22,7 +21,8 @@ public class RedissonConfig {
                         "redis://127.0.0.1:7006"
                 )
                 .setScanInterval(2000); // 2초 간격으로 연결 재시도 설정
-
+        config.setLockWatchdogTimeout(30000); // 락 자동 해제 시간 설정
+        
         return Redisson.create(config);
     }
 

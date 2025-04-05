@@ -24,14 +24,25 @@ public class CacheSubscriber implements MessageListener {
 
         log.info("Received message: {}", body);
 
-        assert body != null;
-        if (body.contains("Updated stock-") || body.contains("Deleted stock-")) {
-            String cachedKey = body.split("-", 2)[1];
-
-            log.info(cachedKey);
-            localCache.invalidate(cachedKey);
-            redisTemplate.delete(cachedKey);
-            log.info("Invalidated local cache for stock: [{}]", cachedKey);
+        if(body == null){
+            log.warn("Received null message from Redis Pub/Sub");
+            return;
         }
+
+        log.info("Received message : {}", body);
+
+        String[] parts = body.split("-", 2);
+        if(parts.length < 2){
+            log.warn("Invalid cache update message format: {}", body);
+            return;
+        }
+
+
+        String cachedKey = parts[1];
+
+        redisTemplate.delete(cachedKey);
+        localCache.invalidate(cachedKey);
+
+        log.info("Invalidated caches for stock: [{}]", cachedKey);
     }
 }

@@ -14,6 +14,7 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.lang.reflect.Method;
+import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Aspect
@@ -23,7 +24,7 @@ public class RedissonLockAspect {
 
     private final RedissonClient redissonClient;
 
-    @Around("@annotation(com.example.annotations.RedissonLock)")
+    @Around("@annotation(SoloTech.StockFlow.common.annotations.RedissonLock)")
     public Object redissonLock(ProceedingJoinPoint joinPoint) throws Throwable {
         log.info("redissonLock");
         MethodSignature signature = (MethodSignature) joinPoint.getSignature();
@@ -32,18 +33,19 @@ public class RedissonLockAspect {
         String lockKey = annotation.value();
 
         RLock lock = redissonClient.getLock(lockKey);
-
         boolean lockable = false;
+
         try {
             // 락 획득 시도
             lockable = lock.tryLock(annotation.waitTime(), annotation.leaseTime(), TimeUnit.MILLISECONDS);
             log.info("name: {}, locked: {}, lockable: {}", lock.getName(), lock.isLocked(), lockable);
+
             if (!lockable) {
                 throw new IllegalStateException("Could not acquire lock for key: " + lockKey);
             }
             log.info("락 획득 성공: {}", lockKey);
 
-            // 트랜잭션 종료 후 락 해제를 등록
+            // 트랜잭션 종료 후 락 해제를 등록 (트랜잭션이 활성화된 경우)
             if (TransactionSynchronizationManager.isSynchronizationActive()) {
                 TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                     @Override
@@ -58,12 +60,14 @@ public class RedissonLockAspect {
 
             // 로직 수행
             return joinPoint.proceed();
-        } catch (IllegalStateException e) {
+        } catch (Exception e) {
             log.info("락 획득 실패: {}", lockKey);
             throw e;
         } finally {
-            if (lockable)
+            if (lockable && !TransactionSynchronizationManager.isSynchronizationActive()) {
                 lock.unlock();
+                log.info("Lock released for key: {}", lockKey);
+            }
         }
     }
 }

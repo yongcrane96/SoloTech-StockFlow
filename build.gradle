@@ -54,10 +54,15 @@ dependencies {
 	// Caffeine Cache 기본 라이브러리
 	implementation 'com.github.ben-manes.caffeine:caffeine:3.1.8'
 
+	//
+	testImplementation 'org.junit.jupiter:junit-jupiter:5.9.0'
+	testImplementation 'org.mockito:mockito-core:5.2.0' // Mockito
+
+
 	// Spring Boot에서 Caffeine 캐시를 사용하려면 추가
 	implementation 'org.springframework.boot:spring-boot-starter-cache'
 }
 
-tasks.named('test') {
-	useJUnitPlatform()
+test {
+	useJUnitPlatform()  // ✅ JUnit 5 테스트 실행하도록 설정
 }
