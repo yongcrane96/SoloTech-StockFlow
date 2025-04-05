@@ -63,6 +63,7 @@ public class StockService {
     }
 
     public Stock getStock(String stockId) {
+        return stockRepository.findByStockIdAndDeletedFalse(stockId)
         String cacheKey = STOCK_KEY_PREFIX + stockId;
 
         Stock cachedStock = (Stock) localCache.getIfPresent(cacheKey);
@@ -124,7 +125,7 @@ public class StockService {
 
     @Transactional
     public Stock decreaseStock(String stockId, Long quantity) {
-        Stock stock = stockRepository.findByStockId(stockId)
+        Stock stock = stockRepository.findByStockIdAndDeletedFalse(stockId)
                 .orElseThrow(() -> new RuntimeException("Stock not found: " + stockId));
         if (!stock.decrease(quantity)) throw new RuntimeException("The quantity is larger than the stock: " + stockId);
 
@@ -145,8 +146,10 @@ public class StockService {
     }
 
     public void deleteStock(String stockId) {
-        Stock stock = stockRepository.findByStockId(stockId)
+        Stock stock = stockRepository.findByStockIdAndDeletedFalse(stockId)
                 .orElseThrow(() -> new RuntimeException("StockId not found : " + stockId));
+        stock.setDeleted(true);
+        stockRepository.save(stock);
         stockRepository.delete(stock);
 
         // 캐시 무효화 대상 key
