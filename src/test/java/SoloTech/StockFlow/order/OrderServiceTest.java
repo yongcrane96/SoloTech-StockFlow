@@ -22,6 +22,7 @@ import org.mockito.*;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 
+import java.time.Duration;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -71,64 +72,74 @@ public class OrderServiceTest {
     @Test
     void createOrderTest() {
         // Given
-        OrderDto dto = new OrderDto(
+        OrderDto orderDto = new OrderDto(
                 "O12345",      // orderId
                 "S12345",      // storeId
-                "P56789",      // productId
+                "P001",        // productId (올바른 값으로 수정)
                 "STK98765",    // stockId
                 2L,            // quantity
                 20000L,        // amount
                 "CARD"         // paymentMethod
         );
 
-        Order mockOrder = Order.builder()
-                .id(1L)
-                .orderId("1907728879506821120") // ❌ 하드코딩 제거
-                .storeId("S12345")
-                .productId("P56789")
-                .stockId("STK98765")
-                .quantity(2L)
-                .build();
-
-        Product mockProduct = Product.builder()
-                .productId(dto.getProductId())
-                .name("테스트상품")
-                .price(dto.getAmount())
-                .build();
-
+        Product mockProduct = new Product(1L, "P001", "백팩", 10000L, "튼튼한 가방");
         Stock mockStock = Stock.builder()
-                .productId(dto.getProductId())
-                .stock(10L)
+                .id(1L)
+                .stockId("S001")
+                .storeId("W001")
+                .productId("P001")
+                .stock(100L)  // 충분한 재고 설정
+                .deleted(false)
                 .build();
 
         Payment mockPayment = Payment.builder()
-                .paymentId("PMT123")
-                .orderId(dto.getOrderId())
-                .amount(dto.getAmount())
-                .paymentStatus(PaymentStatus.PAID)
-                .paymentMethod(dto.getPaymentMethod())
+                .id(1L)
+                .paymentId("PAY123")
+                .orderId(orderDto.getOrderId())
+                .amount(20000L)
+                .paymentMethod("CARD")
+                .paymentStatus(PaymentStatus.Success)  // "Success"로 설정
                 .build();
 
-        // ✅ ObjectMapper 동작 모킹 추가
-        when(mapper.convertValue(any(OrderDto.class), eq(Order.class))).thenReturn(mockOrder);
-        when(orderRepository.saveAndFlush(any(Order.class))).thenReturn(mockOrder);
-        when(productService.getProduct(dto.getProductId())).thenReturn(mockProduct);
-        when(stockService.getStock(dto.getProductId())).thenReturn(mockStock);
+        Order mockOrder = new Order();
+        mockOrder.setProductId("P001");
+        mockOrder.setQuantity(2L);
+        mockOrder.setAmount(20000L);
+        mockOrder.setPaymentMethod("CARD");
+
+        // Mocking
+        when(productService.getProduct("P001")).thenReturn(mockProduct);
+        when(stockService.getStock("P001")).thenReturn(mockStock);
         when(paymentService.createPayment(any(PaymentDto.class))).thenReturn(mockPayment);
-        // 재고 감소 mock
-        doNothing().when(stockService).decreaseStock(dto.getProductId(), dto.getQuantity());
+        when(mapper.convertValue(eq(orderDto), eq(Order.class))).thenReturn(mockOrder);
+        when(orderRepository.saveAndFlush(any(Order.class))).thenAnswer(invocation -> {
+            Order order = invocation.getArgument(0);
+            order.setOrderId("111122223333"); // Snowflake ID mock
+            return order;
+        });
+
+        String cacheKey = ORDER_KEY_PREFIX + "111122223333";
+        doNothing().when(valueOperations).set(eq(cacheKey), any(Order.class), eq(Duration.ofHours(1)));
+        doNothing().when(localCache).put(eq(cacheKey), any(Order.class));
+
         // When
-        Order createdOrder = orderService.createOrder(dto);
+        Order createdOrder = orderService.createOrder(orderDto);
 
         // Then
         assertNotNull(createdOrder);
-        assertEquals("S12345", createdOrder.getStoreId());
+        assertEquals("P001", createdOrder.getProductId());
+        assertEquals(2L, createdOrder.getQuantity());
+        assertEquals(20000L, createdOrder.getAmount());
+        assertEquals("111122223333", createdOrder.getOrderId());
 
-        String cacheKey = ORDER_KEY_PREFIX + createdOrder.getOrderId();
-
-        // Redis 및 로컬 캐시 저장 검증
-        verify(redisTemplate.opsForValue(), times(1)).set(eq(cacheKey), eq(createdOrder), any());
-        verify(localCache, times(1)).put(eq(cacheKey), eq(createdOrder));
+        // Verification
+        verify(productService, times(1)).getProduct("P001");
+        verify(stockService, times(1)).getStock("P001");
+        verify(paymentService, times(1)).createPayment(any(PaymentDto.class));
+        verify(stockService, times(1)).decreaseStock("P001", 2L);
+        verify(orderRepository, times(1)).saveAndFlush(any(Order.class));
+        verify(valueOperations, times(1)).set(eq(cacheKey), any(Order.class), eq(Duration.ofHours(1)));
+        verify(localCache, times(1)).put(eq(cacheKey), any(Order.class));
     }
 
     @Test

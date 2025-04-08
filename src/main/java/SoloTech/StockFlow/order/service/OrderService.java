@@ -6,6 +6,7 @@ import SoloTech.StockFlow.order.entity.Order;
 import SoloTech.StockFlow.order.repository.OrderRepository;
 import SoloTech.StockFlow.payment.dto.PaymentDto;
 import SoloTech.StockFlow.payment.entity.Payment;
+import SoloTech.StockFlow.payment.entity.PaymentStatus;
 import SoloTech.StockFlow.payment.service.PaymentService;
 import SoloTech.StockFlow.product.entity.Product;
 import SoloTech.StockFlow.product.service.ProductService;
@@ -72,7 +73,7 @@ public class OrderService {
         String initialPaymentStatus = "PENDING";
         PaymentDto paymentDto = new PaymentDto(dto.getOrderId(), dto.getAmount(), dto.getPaymentMethod(), initialPaymentStatus);
         Payment payment = paymentService.createPayment(paymentDto);
-        if (!"SUCCESS".equals(payment.getPaymentStatus())) {
+        if (!PaymentStatus.Success.equals(payment.getPaymentStatus())) {
             throw new RuntimeException("Payment failed for order: " + dto.getOrderId());
         }
 
