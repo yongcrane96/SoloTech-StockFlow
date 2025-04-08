@@ -3,6 +3,7 @@ package SoloTech.StockFlow.payment.service;
 import SoloTech.StockFlow.cache.CachePublisher;
 import SoloTech.StockFlow.payment.dto.PaymentDto;
 import SoloTech.StockFlow.payment.entity.Payment;
+import SoloTech.StockFlow.payment.entity.PaymentStatus;
 import SoloTech.StockFlow.payment.repository.PaymentRepository;
 import cn.hutool.core.lang.Snowflake;
 import com.fasterxml.jackson.databind.JsonMappingException;
@@ -37,7 +38,7 @@ public class PaymentService {
 
     private final PaymentRepository paymentRepository;
     private final ObjectMapper mapper;
-
+    private final Snowflake snowflake;
     private static final String PAYMENT_KEY_PREFIX = "payment:";
 
     // 로컬 캐시 (Caffeine)
@@ -51,29 +52,17 @@ public class PaymentService {
         Payment payment = mapper.convertValue(dto, Payment.class);
 
         // Snowflake ID 생성
-        Snowflake snowflake = new Snowflake(1,1);
         long snowflakeId = snowflake.nextId();
-
         payment.setPaymentId(String.valueOf(snowflakeId));
 
-        payment.setPaymentStatus("SUCCESS");
-        return paymentRepository.saveAndFlush(payment);
-    }
-
-    public Payment readPayment(String paymentId) {
-        return paymentRepository.findByPaymentId(paymentId)
-                .orElseThrow(() -> new RuntimeException("Payment not found: " + paymentId));
         Payment savedPayment = paymentRepository.saveAndFlush(payment);
-
-        String cacheKey = PAYMENT_KEY_PREFIX + savedPayment.getOrderId();
-
+        String cacheKey = PAYMENT_KEY_PREFIX + savedPayment.getPaymentId();
         redisTemplate.opsForValue().set(cacheKey, savedPayment, Duration.ofHours(1));
 
         // 로컬 캐시 저장
         localCache.put(cacheKey, savedPayment);
-        cachePublisher.publish("payment_update", cacheKey);
 
-        log.info("Created payment: {}", cacheKey);
+        log.info("Created Payment: {}", cacheKey);
         return savedPayment;
     }
 
@@ -104,18 +93,16 @@ public class PaymentService {
 
     @Transactional
     public Payment updatePayment(String paymentId, PaymentDto dto) throws JsonMappingException {
-        Payment payment = this.readPayment(paymentId);
-        mapper.updateValue(payment, dto);
-        return paymentRepository.save(payment);
         Payment payment = paymentRepository.findByPaymentId(paymentId)
                 .orElseThrow(() -> new EntityNotFoundException("Payment not found: " + paymentId));
 
         mapper.updateValue(payment, dto);
+
         Payment savedPayment = paymentRepository.save(payment);
         // 캐시 키
         String cacheKey = PAYMENT_KEY_PREFIX + savedPayment.getPaymentId();
 
-        redisTemplate.opsForValue().set(cacheKey, savedPayment);
+        redisTemplate.opsForValue().set(cacheKey, savedPayment, Duration.ofHours(1));
         localCache.put(cacheKey, savedPayment);
 
         String message = "Updated payment-" + cacheKey;

@@ -63,17 +63,6 @@ public class StockServiceTest {
     @InjectMocks
     private StockService stockService;
 
-    @Mock
-    private RedisTemplate<String, Object> redisTemplate;
-
-    @Mock
-    private ValueOperations<String, Object> valueOperations;
-
-    @BeforeEach
-    void setUp(){
-        MockitoAnnotations.openMocks(this); // Mock 객체 초기화
-
-        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
     private static final String STOCK_KEY_PREFIX = "stock:";
 
     @BeforeEach
@@ -123,7 +112,15 @@ public class StockServiceTest {
     void getStockTest() {
         String stockId = "S001";
         String cacheKey = STOCK_KEY_PREFIX + stockId;
-        Stock mockStock = new Stock(1L, stockId, "W001", "P001", 100L);
+        Stock mockStock = Stock.builder()
+                .id(1L)
+                .stockId(stockId)
+                .storeId("W001")
+                .productId("P001")
+                .stock(100L)
+                .deleted(false) // ✅ 소프트 삭제 고려
+                .build();
+
 
         when(localCache.getIfPresent(eq(cacheKey))).thenReturn(null);
         when(valueOperations.get(eq(cacheKey))).thenReturn(null);
@@ -142,7 +139,15 @@ public class StockServiceTest {
     @Test
     void decreaseStockSuccessTest() {
         String stockId = "S001";
-        Stock mockStock = new Stock(1L, stockId, "W001", "P001", 100L);
+        Stock mockStock = Stock.builder()
+                .id(1L)
+                .stockId(stockId)
+                .storeId("W001")
+                .productId("P001")
+                .stock(100L)
+                .deleted(false) // ✅ 소프트 삭제 고려
+                .build();
+
 
         when(stockRepository.findByStockId(stockId)).thenReturn(Optional.of(mockStock));
         when(stockRepository.save(any(Stock.class))).thenReturn(mockStock);
@@ -160,7 +165,15 @@ public class StockServiceTest {
     @Test
     void decreaseStockInsufficientTest() {
         String stockId = "S001";
-        Stock mockStock = new Stock(1L, stockId, "W001", "P001", 100L);
+        Stock mockStock = Stock.builder()
+                .id(1L)
+                .stockId(stockId)
+                .storeId("W001")
+                .productId("P001")
+                .stock(100L)
+                .deleted(false) // ✅ 소프트 삭제 고려
+                .build();
+
 
         when(stockRepository.findByStockId(stockId)).thenReturn(Optional.of(mockStock));
 
@@ -178,7 +191,14 @@ public class StockServiceTest {
     void updateStockTest() throws Exception {
         // Given
         String stockId = "1234";
-        Stock existingStock = new Stock(1L, stockId, "W001", "P001", 30L); // Existing stock 30
+        Stock existingStock = Stock.builder()
+                .id(1L)
+                .stockId(stockId)
+                .storeId("W001")
+                .productId("P001")
+                .stock(100L)
+                .deleted(false) // ✅ 소프트 삭제 고려
+                .build(); // Existing stock 30
         StockDto updatedDto = new StockDto();
         updatedDto.setStock(50L); // Updated stock (30 → 50)
 
@@ -216,7 +236,14 @@ public class StockServiceTest {
     void deleteStockTest() {
         String stockId = "S001";
         String cacheKey = STOCK_KEY_PREFIX + stockId;
-        Stock mockStock = new Stock(1L, stockId, "W001", "P001", 100L);
+        Stock mockStock = Stock.builder()
+                .id(1L)
+                .stockId(stockId)
+                .storeId("W001")
+                .productId("P001")
+                .stock(100L)
+                .deleted(false) // ✅ 소프트 삭제 고려
+                .build();
 
         when(stockRepository.findByStockId(stockId)).thenReturn(Optional.of(mockStock));
         doNothing().when(stockRepository).delete(mockStock);
@@ -237,7 +264,15 @@ public class StockServiceTest {
      */
     @Test
     void decreaseStockConcurrencyTest() throws InterruptedException {
-        Stock mockStock = new Stock(1L, "S001", "W001", "P001", 100L);
+        String stockId = "S001";
+        Stock mockStock = Stock.builder()
+                .id(1L)
+                .stockId(stockId)
+                .storeId("W001")
+                .productId("P001")
+                .stock(100L)
+                .deleted(false) // ✅ 소프트 삭제 고려
+                .build();
         when(stockRepository.findByStockId("S001")).thenReturn(Optional.of(mockStock));
         when(stockRepository.save(any(Stock.class))).thenAnswer(invocation -> invocation.getArgument(0)); // 저장된 객체 반환
 
@@ -266,7 +301,14 @@ public class StockServiceTest {
     @Test
     void decreaseStockCacheUpdateTest() {
         // given
-        Stock mockStock = new Stock(1L, "S001", "W001", "P001", 100L);
+        Stock mockStock = Stock.builder()
+                .id(1L)
+                .stockId("S001")
+                .storeId("W001")
+                .productId("P001")
+                .stock(100L)
+                .deleted(false) // ✅ 소프트 삭제 고려
+                .build();
 
         when(stockRepository.findByStockId("S001")).thenReturn(Optional.of(mockStock));
         when(stockRepository.save(any(Stock.class))).thenReturn(mockStock);

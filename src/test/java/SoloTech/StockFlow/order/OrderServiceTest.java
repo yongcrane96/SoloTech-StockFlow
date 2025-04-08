@@ -5,6 +5,14 @@ import SoloTech.StockFlow.order.dto.OrderDto;
 import SoloTech.StockFlow.order.entity.Order;
 import SoloTech.StockFlow.order.repository.OrderRepository;
 import SoloTech.StockFlow.order.service.OrderService;
+import SoloTech.StockFlow.payment.dto.PaymentDto;
+import SoloTech.StockFlow.payment.entity.Payment;
+import SoloTech.StockFlow.payment.entity.PaymentStatus;
+import SoloTech.StockFlow.payment.service.PaymentService;
+import SoloTech.StockFlow.product.entity.Product;
+import SoloTech.StockFlow.product.service.ProductService;
+import SoloTech.StockFlow.stock.entity.Stock;
+import SoloTech.StockFlow.stock.service.StockService;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.benmanes.caffeine.cache.Cache;
@@ -43,6 +51,15 @@ public class OrderServiceTest {
     @Mock
     private ValueOperations<String, Object> valueOperations;
 
+    @Mock
+    private ProductService productService;
+
+    @Mock
+    private StockService stockService;
+
+    @Mock
+    private PaymentService paymentService;
+
     private static final String ORDER_KEY_PREFIX = "order:";
 
     @BeforeEach
@@ -54,7 +71,16 @@ public class OrderServiceTest {
     @Test
     void createOrderTest() {
         // Given
-        OrderDto dto = new OrderDto("S12345", "P56789", "STK98765", 2L);
+        OrderDto dto = new OrderDto(
+                "O12345",      // orderId
+                "S12345",      // storeId
+                "P56789",      // productId
+                "STK98765",    // stockId
+                2L,            // quantity
+                20000L,        // amount
+                "CARD"         // paymentMethod
+        );
+
         Order mockOrder = Order.builder()
                 .id(1L)
                 .orderId("1907728879506821120") // ❌ 하드코딩 제거
@@ -64,10 +90,33 @@ public class OrderServiceTest {
                 .quantity(2L)
                 .build();
 
+        Product mockProduct = Product.builder()
+                .productId(dto.getProductId())
+                .name("테스트상품")
+                .price(dto.getAmount())
+                .build();
+
+        Stock mockStock = Stock.builder()
+                .productId(dto.getProductId())
+                .stock(10L)
+                .build();
+
+        Payment mockPayment = Payment.builder()
+                .paymentId("PMT123")
+                .orderId(dto.getOrderId())
+                .amount(dto.getAmount())
+                .paymentStatus(PaymentStatus.PAID)
+                .paymentMethod(dto.getPaymentMethod())
+                .build();
+
         // ✅ ObjectMapper 동작 모킹 추가
         when(mapper.convertValue(any(OrderDto.class), eq(Order.class))).thenReturn(mockOrder);
         when(orderRepository.saveAndFlush(any(Order.class))).thenReturn(mockOrder);
-
+        when(productService.getProduct(dto.getProductId())).thenReturn(mockProduct);
+        when(stockService.getStock(dto.getProductId())).thenReturn(mockStock);
+        when(paymentService.createPayment(any(PaymentDto.class))).thenReturn(mockPayment);
+        // 재고 감소 mock
+        doNothing().when(stockService).decreaseStock(dto.getProductId(), dto.getQuantity());
         // When
         Order createdOrder = orderService.createOrder(dto);
 
@@ -118,7 +167,16 @@ public class OrderServiceTest {
     void updateOrderTest() throws JsonMappingException {
         // Given
         String orderId = "order123";
-        OrderDto dto = new OrderDto("store1", "product1", "stock1", 10L);
+        OrderDto dto = new OrderDto(
+                "O12345",      // orderId
+                "S12345",      // storeId
+                "P56789",      // productId
+                "STK98765",    // stockId
+                2L,            // quantity
+                20000L,        // amount
+                "CARD"         // paymentMethod
+        );
+
         Order existingOrder = Order.builder()
                 .orderId(orderId)
                 .storeId("storeOld")
@@ -161,7 +219,6 @@ public class OrderServiceTest {
         verify(orderRepository).save(existingOrder);
         verify(mapper).updateValue(existingOrder, dto);
     }
-
 
     @Test
     void deleteOrderTest() {

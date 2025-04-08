@@ -2,8 +2,6 @@ package SoloTech.StockFlow.stock.service;
 
 import SoloTech.StockFlow.common.annotations.RedissonLock;
 import SoloTech.StockFlow.cache.CachePublisher;
-import SoloTech.StockFlow.order.entity.Order;
-import SoloTech.StockFlow.order.service.OrderService;
 import SoloTech.StockFlow.stock.dto.StockDto;
 import SoloTech.StockFlow.stock.entity.Stock;
 import SoloTech.StockFlow.stock.repository.StockRepository;
@@ -18,22 +16,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
-import java.util.concurrent.TimeUnit;
-
-@Slf4j
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.stereotype.Service;
-
 import java.time.Duration;
-import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class StockService {
-
-    private static final Logger log = LoggerFactory.getLogger(OrderService.class);
 
     final StockRepository stockRepository;
     final ObjectMapper mapper;
@@ -43,8 +31,6 @@ public class StockService {
 
     // 로컬 캐시 (Caffeine)
     private final Cache<String, Object> localCache;
-
-    private final RedisTemplate<String, Object> redisTemplate;
 
     // 메시지 발행 (Pub/Sub) 컴포넌트
     private final CachePublisher cachePublisher;
@@ -72,7 +58,6 @@ public class StockService {
     }
 
     public Stock getStock(String stockId) {
-        return stockRepository.findByStockIdAndDeletedFalse(stockId)
         String cacheKey = STOCK_KEY_PREFIX + stockId;
 
         Stock cachedStock = (Stock) localCache.getIfPresent(cacheKey);
@@ -141,7 +126,7 @@ public class StockService {
     @Transactional
     @RedissonLock(value = "#{'stock-' + stockId}")
     public Stock decreaseStock(String stockId, Long quantity) {
-        Stock stock = stockRepository.findByStockIdAndDeletedFalse(stockId)
+        Stock stock = stockRepository.findByStockId(stockId)
                 .orElseThrow(() -> new RuntimeException("Stock not found: " + stockId));
 
         // 수량 검사
@@ -150,11 +135,9 @@ public class StockService {
         Stock updatedStock = stockRepository.save(stock);
 
         // 캐시 갱신 및 Pub/Sub 메시지 발행
-        String cacheKey = "stock-" + stockId;
-        redisTemplate.opsForValue().set(cacheKey, updatedStock);
-        redisTemplate.convertAndSend("cache-sync", "Updated stock-" + stockId);
         // 캐시 키 생성
         String cacheKey = STOCK_KEY_PREFIX + stockId;
+        redisTemplate.convertAndSend("cache-sync", "Updated stock-" + stockId);
         redisTemplate.opsForValue().set(cacheKey, updatedStock);
         localCache.put(cacheKey, updatedStock);
 
@@ -168,7 +151,7 @@ public class StockService {
     }
 
     public void deleteStock(String stockId) {
-        Stock stock = stockRepository.findByStockIdAndDeletedFalse(stockId)
+        Stock stock = stockRepository.findByStockId(stockId)
                 .orElseThrow(() -> new RuntimeException("StockId not found : " + stockId));
         stock.setDeleted(true);
         stockRepository.save(stock);

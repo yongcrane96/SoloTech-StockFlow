@@ -56,7 +56,6 @@ dependencies {
 	// Caffeine Cache 기본 라이브러리
 	implementation 'com.github.ben-manes.caffeine:caffeine:3.1.8'
 
-	//
 	testImplementation 'org.junit.jupiter:junit-jupiter:5.9.0'
 	testImplementation 'org.mockito:mockito-core:5.2.0' // Mockito
 
