@@ -2,6 +2,7 @@ package SoloTech.StockFlow.order.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 
 /**
@@ -10,6 +11,7 @@ import lombok.Data;
  * @since   2025-03-18
  * @author  yhkim
  */
+@Builder
 @Data
 @AllArgsConstructor
 public class OrderDto {
