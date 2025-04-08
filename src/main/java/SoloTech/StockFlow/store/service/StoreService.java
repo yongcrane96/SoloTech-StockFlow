@@ -1,6 +1,8 @@
 package SoloTech.StockFlow.store.service;
 
 import SoloTech.StockFlow.cache.CachePublisher;
+import SoloTech.StockFlow.common.annotations.Cached;
+import SoloTech.StockFlow.common.cache.CacheType;
 import SoloTech.StockFlow.order.entity.Order;
 import SoloTech.StockFlow.order.service.OrderService;
 import SoloTech.StockFlow.store.dto.StoreDto;
@@ -46,7 +48,7 @@ public class StoreService {
     // 메시지 발행 (Pub/Sub) 컴포넌트
     private final CachePublisher cachePublisher;
 
-
+    @Cached(prefix = "store:", key = "#result.storeId", ttl = 3600, type = CacheType.WRITE)
     @Transactional
     public Store createStore(StoreDto dto) {
         Store store = mapper.convertValue(dto, Store.class);
@@ -56,43 +58,18 @@ public class StoreService {
         store.setStoreId(String.valueOf(snowflakeId));
         Store savedStore = storeRepository.saveAndFlush(store);
 
-        String cacheKey = STORE_KEY_PREFIX + savedStore.getStoreId();
-        redisTemplate.opsForValue().set(cacheKey, savedStore, Duration.ofHours(1));
-
-        // 로컬 캐시 저장
-        localCache.put(cacheKey, savedStore);
-
-        log.info("Created store: {}", cacheKey);
         return savedStore;
     }
 
+    @Cached(prefix = "store:", key = "#storeId", ttl = 3600, type = CacheType.READ)
     public Store getStore(String storeId) {
-        // 1) 로컬 캐시 확인
-        String cacheKey = STORE_KEY_PREFIX + storeId;
-
-        // 1) 로컬 캐시 확인
-        Store cachedStore = (Store) localCache.getIfPresent(cacheKey);
-        if (cachedStore != null) {
-            return cachedStore;
-        }
-
-        // 2) Redis 확인
-        cachedStore = (Store) redisTemplate.opsForValue().get(cacheKey);
-        if (cachedStore != null) {
-            localCache.put(cacheKey, cachedStore);
-            return cachedStore;
-        }
-
-        // 3) DB 조회
         Store dbStore = storeRepository.findByStoreId(storeId)
                 .orElseThrow(() -> new RuntimeException("Store not found: " + storeId));
 
-        // 캐시에 저장
-        redisTemplate.opsForValue().set(cacheKey, dbStore);
-        localCache.put(cacheKey, dbStore);
+        return dbStore;
+    }
 
-        return dbStore;    }
-
+    @Cached(prefix = "store:", key = "#result.storeId", ttl = 3600, type = CacheType.WRITE)
     @Transactional
     public Store updateStore(String storeId, StoreDto dto) throws JsonMappingException {
         Store store = storeRepository.findByStoreId(storeId)
@@ -100,40 +77,14 @@ public class StoreService {
 
         mapper.updateValue(store,dto);
         Store savedStore = storeRepository.save(store);
-        String cacheKey = STORE_KEY_PREFIX + savedStore.getStoreId();
-
-        // Redis, 로컬 캐시에 갱신
-        redisTemplate.opsForValue().set(cacheKey, savedStore);
-        if (localCache.getIfPresent(cacheKey) == null) {
-            localCache.put(cacheKey, savedStore);
-        }
-
-        // 다른 서버 인스턴스 캐시 무효화를 위해 메시지 발행
-        // 메시지 형식: "Updated store-store:xxxx" 로 가정
-        String message = "Updated store-" + cacheKey;
-        cachePublisher.publish("cache-sync", message);
-
-        log.info("Updated store: {}, published message: {}", cacheKey, message);
 
         return savedStore;
     }
 
+    @Cached(prefix = "store:", key = "#storeId", ttl = 3600, type = CacheType.DELETE)
     public void deleteStore(String storeId) {
         Store store = storeRepository.findByStoreId(storeId)
                 .orElseThrow(()->new RuntimeException("Store not found: " + storeId));
         storeRepository.delete(store);
-
-        // 캐시 무효화 대상 key
-        String cacheKey = STORE_KEY_PREFIX + storeId;
-
-        // 현재 서버(로컬 캐시 + Redis)에서도 삭제
-        localCache.invalidate(cacheKey);
-        redisTemplate.delete(cacheKey);
-        // 다른 서버들도 캐시를 무효화하도록 메시지 발행
-        // 메시지 형식: "Deleted store-store:xxxx" 로 가정
-        String message = "Deleted store-" + cacheKey;
-        cachePublisher.publish("cache-sync", message);
-
-        log.info("Deleted store: {}, published message: {}", cacheKey, message);
-    }
+}
 }
