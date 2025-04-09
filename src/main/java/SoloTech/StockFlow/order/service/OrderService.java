@@ -1,6 +1,7 @@
 package SoloTech.StockFlow.order.service;
 
 import SoloTech.StockFlow.common.annotations.Cached;
+import SoloTech.StockFlow.common.annotations.RedissonLock;
 import SoloTech.StockFlow.common.cache.CacheType;
 import SoloTech.StockFlow.order.dto.OrderDto;
 import SoloTech.StockFlow.order.entity.Order;
@@ -40,6 +41,7 @@ public class OrderService {
 
     private final ObjectMapper mapper;
 
+    @RedissonLock(value = "stock-{productId}", transactional = true)
     @Cached(prefix = "order:", key = "#result.orderId", ttl = 3600, type = CacheType.WRITE, cacheNull = true)
     @Transactional
     public Order createOrder(OrderDto dto) {
