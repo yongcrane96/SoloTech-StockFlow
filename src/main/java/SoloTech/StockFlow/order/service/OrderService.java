@@ -1,6 +1,7 @@
 package SoloTech.StockFlow.order.service;
 
 import SoloTech.StockFlow.cache.CachePublisher;
+import SoloTech.StockFlow.common.annotations.RedissonLock;
 import SoloTech.StockFlow.order.dto.OrderDto;
 import SoloTech.StockFlow.order.entity.Order;
 import SoloTech.StockFlow.order.repository.OrderRepository;
@@ -55,6 +56,7 @@ public class OrderService {
     // 메시지 발행 (Pub/Sub) 컴포넌트
     private final CachePublisher cachePublisher;
 
+    @RedissonLock(value = "stock-{productId}", transactional = true)
     @Transactional
     public Order createOrder(OrderDto dto) {
         // 1. 상품 조회
