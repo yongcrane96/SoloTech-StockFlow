@@ -24,7 +24,7 @@ public class ProductService {
     private final ObjectMapper mapper;
 
 
-    @Cached(prefix = "product:", key = "#result.productId", ttl = 3600, type = CacheType.WRITE)
+    @Cached(prefix = "product:", key = "#result.productId", ttl = 3600, type = CacheType.WRITE, cacheNull = true)
     @Transactional
     public Product createProduct(ProductDto dto) {
         Product product = mapper.convertValue(dto, Product.class);
@@ -38,7 +38,7 @@ public class ProductService {
         return savedProduct;
     }
 
-    @Cached(prefix = "product:", key = "#productId", ttl = 3600, type = CacheType.READ)
+    @Cached(prefix = "product:", key = "#productId", ttl = 3600, type = CacheType.READ, cacheNull = true)
     public Product getProduct(String productId) {
         Product dbProduct = productRepository.findByProductId(productId)
             .orElseThrow(()-> new RuntimeException("Product not found : " + productId));
@@ -46,7 +46,7 @@ public class ProductService {
         return dbProduct;
     }
 
-    @Cached(prefix = "product:", key = "#result.productId", ttl = 3600, type = CacheType.WRITE)
+    @Cached(prefix = "product:", key = "#result.productId", ttl = 3600, type = CacheType.WRITE, cacheNull = true)
     @Transactional
     public Product updateProduct(String productId, ProductDto dto) throws JsonMappingException {
         Product product = productRepository.findByProductId(productId)
@@ -60,7 +60,7 @@ public class ProductService {
         return savedProduct;
     }
 
-    @Cached(prefix = "product:", key = "#productId", ttl = 3600, type = CacheType.DELETE)
+    @Cached(prefix = "product:", key = "#productId", ttl = 3600, type = CacheType.DELETE, cacheNull = true)
     public void deleteProduct(String productId) {
         Product product = productRepository.findByProductId(productId)
                 .orElseThrow(()-> new RuntimeException("Product not found : " + productId));

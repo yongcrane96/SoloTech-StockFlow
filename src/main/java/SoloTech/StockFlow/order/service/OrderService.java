@@ -40,7 +40,7 @@ public class OrderService {
 
     private final ObjectMapper mapper;
 
-    @Cached(prefix = "order:", key = "#result.orderId", ttl = 3600, type = CacheType.WRITE)
+    @Cached(prefix = "order:", key = "#result.orderId", ttl = 3600, type = CacheType.WRITE, cacheNull = true)
     @Transactional
     public Order createOrder(OrderDto dto) {
         // 1. 상품 조회
@@ -78,7 +78,7 @@ public class OrderService {
     }
 
 
-    @Cached(prefix = "order:", key = "#orderId", ttl = 3600, type = CacheType.READ)
+    @Cached(prefix = "order:", key = "#orderId", ttl = 3600, type = CacheType.READ, cacheNull = true)
     public Order readOrder(String orderId) {
         // DB 조회
          Order dbOrder = orderRepository.findByOrderId(orderId)
@@ -87,7 +87,7 @@ public class OrderService {
         return dbOrder;
     }
 
-    @Cached(prefix = "order:", key = "#result.orderId", ttl = 3600, type = CacheType.WRITE)
+    @Cached(prefix = "order:", key = "#result.orderId", ttl = 3600, type = CacheType.WRITE, cacheNull = true)
     @Transactional
     public Order updateOrder(String orderId, OrderDto dto) throws JsonMappingException {
         Order order = orderRepository.findByOrderId(orderId)
@@ -100,7 +100,7 @@ public class OrderService {
     }
 
 
-    @Cached(prefix = "order:", key = "#orderId", ttl = 3600, type = CacheType.DELETE)
+    @Cached(prefix = "order:", key = "#orderId", ttl = 3600, type = CacheType.DELETE, cacheNull = true)
     public void deleteOrder(String orderId) {
         Order order = orderRepository.findByOrderId(orderId)
                 .orElseThrow(()-> new RuntimeException("Order not found: " + orderId));

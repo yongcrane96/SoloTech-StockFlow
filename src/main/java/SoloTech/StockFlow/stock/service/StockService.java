@@ -26,7 +26,7 @@ public class StockService {
     final ObjectMapper mapper;
     final RedisTemplate redisTemplate;
 
-    @Cached(prefix = "stock:", key = "#result.stockId", ttl = 3600, type = CacheType.WRITE)
+    @Cached(prefix = "stock:", key = "#result.stockId", ttl = 3600, type = CacheType.WRITE, cacheNull = true)
     @Transactional
     public Stock createStock(StockDto dto) {
         log.info("createStock dto : ", dto);
@@ -41,7 +41,7 @@ public class StockService {
         return savedStock;
     }
 
-    @Cached(prefix = "stock:", key = "#stockId", ttl = 3600, type = CacheType.READ)
+    @Cached(prefix = "stock:", key = "#stockId", ttl = 3600, type = CacheType.READ, cacheNull = true)
     public Stock getStock(String stockId) {
         Stock dbStock = stockRepository.findByStockId(stockId)
                 .orElseThrow(() -> new RuntimeException("StockId not found : " + stockId));
@@ -49,7 +49,7 @@ public class StockService {
         return dbStock;
     }
 
-    @Cached(prefix = "stock:", key = "#result.stockId", ttl = 3600, type = CacheType.WRITE)
+    @Cached(prefix = "stock:", key = "#result.stockId", ttl = 3600, type = CacheType.WRITE, cacheNull = true)
     @Transactional
     public Stock updateStock(String stockId, StockDto dto) throws JsonMappingException {
         Stock stock = stockRepository.findByStockId(stockId)
@@ -74,7 +74,7 @@ public class StockService {
      *  - Pub/Sub 메시지 발행
      */
     @Transactional
-    @Cached(prefix = "stock:", key = "#result.stockId", ttl = 3600, type = CacheType.WRITE)
+    @Cached(prefix = "stock:", key = "#result.stockId", ttl = 3600, type = CacheType.WRITE, cacheNull = true)
     @RedissonLock(value = "#{'stock-' + stockId}")
     public Stock decreaseStock(String stockId, Long quantity) {
         Stock stock = stockRepository.findByStockId(stockId)
@@ -89,7 +89,7 @@ public class StockService {
     }
 
 
-    @Cached(prefix = "stock:", key = "#stockId", ttl = 3600, type = CacheType.DELETE)
+    @Cached(prefix = "stock:", key = "#stockId", ttl = 3600, type = CacheType.DELETE, cacheNull = true)
     public void deleteStock(String stockId) {
         Stock stock = stockRepository.findByStockId(stockId)
                 .orElseThrow(() -> new RuntimeException("StockId not found : " + stockId));

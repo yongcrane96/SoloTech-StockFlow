@@ -31,7 +31,7 @@ public class PaymentService {
     private final ObjectMapper mapper;
     private final Snowflake snowflake;
 
-    @Cached(prefix = "payment:", key = "#result.paymentId", ttl = 3600, type = CacheType.WRITE)
+    @Cached(prefix = "payment:", key = "#result.paymentId", ttl = 3600, type = CacheType.WRITE, cacheNull = true)
     @Transactional
     public Payment createPayment(PaymentDto dto) {
         Payment payment = mapper.convertValue(dto, Payment.class);
@@ -44,14 +44,14 @@ public class PaymentService {
         return savedPayment;
     }
 
-    @Cached(prefix = "payment:", key = "#paymentId", ttl = 3600, type = CacheType.READ)
+    @Cached(prefix = "payment:", key = "#paymentId", ttl = 3600, type = CacheType.READ, cacheNull = true)
     public Payment readPayment(String paymentId) {
         Payment dbPayment = paymentRepository.findByPaymentId(paymentId)
                 .orElseThrow(() -> new RuntimeException("Payment not found: " + paymentId));
         return dbPayment;
     }
 
-    @Cached(prefix = "payment:", key = "#result.paymentId", ttl = 3600, type = CacheType.WRITE)
+    @Cached(prefix = "payment:", key = "#result.paymentId", ttl = 3600, type = CacheType.WRITE, cacheNull = true)
     @Transactional
     public Payment updatePayment(String paymentId, PaymentDto dto) throws JsonMappingException {
         Payment payment = paymentRepository.findByPaymentId(paymentId)
@@ -63,7 +63,7 @@ public class PaymentService {
         return savedPayment;
     }
 
-    @Cached(prefix = "payment:", key = "#paymentId", ttl = 3600, type = CacheType.DELETE)
+    @Cached(prefix = "payment:", key = "#paymentId", ttl = 3600, type = CacheType.DELETE, cacheNull = true)
     public void deletePayment(String paymentId) {
         Payment payment = paymentRepository.findByPaymentId(paymentId)
                 .orElseThrow(() -> new RuntimeException("Payment not found: " + paymentId));

@@ -15,4 +15,5 @@ public @interface Cached {
     String key();
     long ttl() default 3600; // 초 단위 TTL
     CacheType type() default CacheType.READ;
+    boolean cacheNull() default false;
 }

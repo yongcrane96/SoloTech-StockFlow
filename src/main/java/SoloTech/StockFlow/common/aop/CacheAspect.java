@@ -1,6 +1,6 @@
 package SoloTech.StockFlow.common.aop;
 import SoloTech.StockFlow.cache.CachePublisher;
-import SoloTech.StockFlow.cache.CacheSubscriber;
+import static SoloTech.StockFlow.common.util.SpELKeyGenerator.generateKey;
 import SoloTech.StockFlow.common.annotations.Cached;
 import SoloTech.StockFlow.common.cache.CacheType;
 import com.github.benmanes.caffeine.cache.Cache;
@@ -10,14 +10,10 @@ import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.reflect.MethodSignature;
-import org.springframework.core.DefaultParameterNameDiscoverer;
-import org.springframework.core.ParameterNameDiscoverer;
 import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.expression.EvaluationContext;
-import org.springframework.expression.spel.standard.SpelExpressionParser;
-import org.springframework.expression.spel.support.StandardEvaluationContext;
 import org.springframework.stereotype.Component;
-
+import static SoloTech.StockFlow.common.util.CacheKeyUtil.*;
+import static SoloTech.StockFlow.common.cache.CacheType.*;
 import java.lang.reflect.Method;
 import java.time.Duration;
 
@@ -33,7 +29,6 @@ public class CacheAspect {
     private final Cache<String,Object> localCache;
     private final RedisTemplate<String,Object> redisTemplate;
     private final CachePublisher cachePublisher;
-    private final SpelExpressionParser parser = new SpelExpressionParser();
     private static final long DEFAULT_TTL = 60;
 
     @Around("@annotation(cached)")
@@ -51,9 +46,9 @@ public class CacheAspect {
 
         MethodSignature signature = (MethodSignature) joinPoint.getSignature();
         Method method = signature.getMethod();
-        String key = buildKeyFromSpEL(keyExpression, method, joinPoint.getArgs());
+        String key = generateKey(keyExpression, method, joinPoint.getArgs());
 
-        String cacheKey = prefix + key;
+        String cacheKey = buildFullKey(prefix, key);
 
         Object result;
 
@@ -69,7 +64,7 @@ public class CacheAspect {
                 }
 
                 result = joinPoint.proceed();
-                if (result != null) {
+                if (result != null || cached.cacheNull()) { // null 값도 캐싱 처리
                     redisTemplate.opsForValue().set(cacheKey, result, Duration.ofSeconds(ttl));
                     localCache.put(cacheKey, result);
                     log.info("[READ] Cached: {}", cacheKey);
@@ -79,12 +74,12 @@ public class CacheAspect {
 
             case WRITE -> {
                 result = joinPoint.proceed();
-                if (result != null) {
+                if (result != null || cached.cacheNull()) {
                     redisTemplate.opsForValue().set(cacheKey, result, Duration.ofSeconds(ttl));
                     localCache.put(cacheKey, result);
 
-                    String message = "Updated " + prefix+ "-" + cacheKey;
-                    cachePublisher.publish("cache-sync", message);
+                    String message = buildEventMessage(WRITE, prefix, key);
+                    cachePublisher.publish(getDefaultChannel(), message);
 
                     log.info("[WRITE] Cached and published: {}, message: {}", cacheKey, message);
                 }
@@ -97,8 +92,8 @@ public class CacheAspect {
                 redisTemplate.delete(cacheKey);
                 localCache.invalidate(cacheKey);
 
-                String message = "DELETE  " + prefix+ "-" + cacheKey;
-                cachePublisher.publish("cache-sync", message);
+                String message = buildEventMessage(DELETE, prefix, key);
+                cachePublisher.publish(getDefaultChannel(), message);
 
                 log.info("[DELETE] Cache invalidated and published: {}, message: {}", cacheKey, message);
                 return result;
@@ -107,25 +102,6 @@ public class CacheAspect {
                 log.warn("Unsupported cache type: {}", type);
                 return joinPoint.proceed();
             }
-        }
-    }
-
-    private String buildKeyFromSpEL(String keySpEL, Method method, Object[] args){
-        EvaluationContext evalContext = new StandardEvaluationContext();
-
-        ParameterNameDiscoverer discoverer = new DefaultParameterNameDiscoverer();
-        String[] paramNames = discoverer.getParameterNames(method);
-
-        if(paramNames != null){
-            for (int i = 0; i < paramNames.length; i++) {
-                evalContext.setVariable(paramNames[i], args[i]);
-            }
-        }
-        try{
-            return  parser.parseExpression(keySpEL).getValue(evalContext, String.class);
-        } catch (Exception e){
-            log.error("SpEL 파싱 오류 - key: {}, error: {}", keySpEL, e.getMessage());
-            throw new RuntimeException("캐시 키 생성 실패", e);
         }
     }
 }

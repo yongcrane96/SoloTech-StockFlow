@@ -48,7 +48,7 @@ public class StoreService {
     // 메시지 발행 (Pub/Sub) 컴포넌트
     private final CachePublisher cachePublisher;
 
-    @Cached(prefix = "store:", key = "#result.storeId", ttl = 3600, type = CacheType.WRITE)
+    @Cached(prefix = "store:", key = "#result.storeId", ttl = 3600, type = CacheType.WRITE, cacheNull = true)
     @Transactional
     public Store createStore(StoreDto dto) {
         Store store = mapper.convertValue(dto, Store.class);
@@ -61,7 +61,7 @@ public class StoreService {
         return savedStore;
     }
 
-    @Cached(prefix = "store:", key = "#storeId", ttl = 3600, type = CacheType.READ)
+    @Cached(prefix = "store:", key = "#storeId", ttl = 3600, type = CacheType.READ, cacheNull = true)
     public Store getStore(String storeId) {
         Store dbStore = storeRepository.findByStoreId(storeId)
                 .orElseThrow(() -> new RuntimeException("Store not found: " + storeId));
@@ -69,7 +69,7 @@ public class StoreService {
         return dbStore;
     }
 
-    @Cached(prefix = "store:", key = "#result.storeId", ttl = 3600, type = CacheType.WRITE)
+    @Cached(prefix = "store:", key = "#result.storeId", ttl = 3600, type = CacheType.WRITE, cacheNull = true)
     @Transactional
     public Store updateStore(String storeId, StoreDto dto) throws JsonMappingException {
         Store store = storeRepository.findByStoreId(storeId)
@@ -81,7 +81,7 @@ public class StoreService {
         return savedStore;
     }
 
-    @Cached(prefix = "store:", key = "#storeId", ttl = 3600, type = CacheType.DELETE)
+    @Cached(prefix = "store:", key = "#storeId", ttl = 3600, type = CacheType.DELETE, cacheNull = true)
     public void deleteStore(String storeId) {
         Store store = storeRepository.findByStoreId(storeId)
                 .orElseThrow(()->new RuntimeException("Store not found: " + storeId));
