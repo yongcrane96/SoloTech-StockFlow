@@ -124,7 +124,7 @@ public class StockService {
      *  - Pub/Sub 메시지 발행
      */
     @Transactional
-    @RedissonLock(value = "#{'stock-' + stockId}")
+    @RedissonLock(value = "stock-{stockId}", transactional = true)
     public Stock decreaseStock(String stockId, Long quantity) {
         Stock stock = stockRepository.findByStockId(stockId)
                 .orElseThrow(() -> new RuntimeException("Stock not found: " + stockId));

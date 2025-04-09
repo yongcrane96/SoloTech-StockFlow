@@ -12,4 +12,5 @@ public @interface RedissonLock {
     String value(); // Redis Lock Key 값
     long waitTime() default 5000L; // 락 획득 대기 시간 (기본값: 5000ms)
     long leaseTime() default 2000L; // 락 점유 시간 (기본값: 2000ms, -1 설정 시 자동 연장)
+    boolean transactional() default false;
 }
