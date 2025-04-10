@@ -3,18 +3,18 @@ package SoloTech.StockFlow.stock;
 import SoloTech.StockFlow.cache.CachePublisher;
 import SoloTech.StockFlow.stock.dto.StockDto;
 import SoloTech.StockFlow.stock.entity.Stock;
+import SoloTech.StockFlow.stock.exception.StockNotFoundException;
 import SoloTech.StockFlow.stock.repository.StockRepository;
 import SoloTech.StockFlow.stock.service.StockService;
 import cn.hutool.core.lang.Snowflake;
-import java.time.Duration;
-import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.benmanes.caffeine.cache.Cache;
+import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 import org.springframework.data.redis.core.RedisTemplate;
 
@@ -22,28 +22,16 @@ import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import org.junit.jupiter.api.Test; // ✅ JUnit 5
 import org.springframework.data.redis.core.ValueOperations;
 
 import static org.mockito.Mockito.*;
-
-import org.mockito.*;
-import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.data.redis.core.ValueOperations;
-
-import java.time.Duration;
-import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 public class StockServiceTest {
     @Mock
     private StockRepository stockRepository;
-
-    @Mock
-    private Cache<String, Object> localCache;
 
     @Mock
     private RedisTemplate<String, Object> redisTemplate;
@@ -55,15 +43,10 @@ public class StockServiceTest {
     private CachePublisher cachePublisher;
 
     @Mock
-    private Snowflake snowflake;
-
-    @Mock
     private ObjectMapper objectMapper;
 
     @InjectMocks
     private StockService stockService;
-
-    private static final String STOCK_KEY_PREFIX = "stock:";
 
     @BeforeEach
     void setUp() {
@@ -77,6 +60,7 @@ public class StockServiceTest {
     }
 
     @Test
+    @DisplayName("재고 생성")
     void createStockTest() {
         // Arrange
         StockDto stockDto = new StockDto("store123", "product456", 100L);
@@ -90,7 +74,6 @@ public class StockServiceTest {
 
         when(objectMapper.convertValue(stockDto, Stock.class)).thenReturn(stock);
         when(stockRepository.saveAndFlush(any(Stock.class))).thenReturn(stock);
-        doNothing().when(cachePublisher).publish(anyString(), anyString());
 
         // Act
         Stock savedStock = stockService.createStock(stockDto);
@@ -101,17 +84,13 @@ public class StockServiceTest {
         assertEquals(stockDto.getProductId(), savedStock.getProductId());
         assertEquals(stockDto.getStock(), savedStock.getStock());
 
-        String cacheKey = STOCK_KEY_PREFIX + savedStock.getStockId();
-        // Redis 및 로컬 캐시 저장 검증
-        verify(redisTemplate.opsForValue(), times(1)).set(eq(cacheKey), eq(savedStock), any(Duration.class)); // Duration 추가
-        verify(localCache, times(1)).put(eq(cacheKey), eq(savedStock));
-        verify(cachePublisher).publish(anyString(), anyString());
+        verify(stockRepository).saveAndFlush(any(Stock.class));
     }
 
     @Test
+    @DisplayName("재고 조회")
     void getStockTest() {
         String stockId = "S001";
-        String cacheKey = STOCK_KEY_PREFIX + stockId;
         Stock mockStock = Stock.builder()
                 .id(1L)
                 .stockId(stockId)
@@ -122,8 +101,6 @@ public class StockServiceTest {
                 .build();
 
 
-        when(localCache.getIfPresent(eq(cacheKey))).thenReturn(null);
-        when(valueOperations.get(eq(cacheKey))).thenReturn(null);
         when(stockRepository.findByStockId(eq(stockId))).thenReturn(Optional.of(mockStock));
 
         Stock result = stockService.getStock(stockId);
@@ -132,11 +109,11 @@ public class StockServiceTest {
         assertEquals(stockId, result.getStockId());
         assertEquals("W001", result.getStoreId());
 
-        verify(valueOperations, times(1)).set(eq(cacheKey), eq(mockStock));
-        verify(localCache, times(1)).put(eq(cacheKey), eq(mockStock));
+        verify(stockRepository, times(1)).findByStockId(stockId);
     }
 
     @Test
+    @DisplayName("재고 부족 성공 시")
     void decreaseStockSuccessTest() {
         String stockId = "S001";
         Stock mockStock = Stock.builder()
@@ -157,12 +134,11 @@ public class StockServiceTest {
         assertNotNull(result);
         assertEquals(50L, result.getStock());
 
-        String cacheKey = STOCK_KEY_PREFIX + stockId;
-        verify(valueOperations, times(1)).set(eq(cacheKey), eq(mockStock));
-        verify(localCache, times(1)).put(eq(cacheKey), eq(mockStock));
+        verify(stockRepository, times(1)).findByStockId(stockId);
     }
 
     @Test
+    @DisplayName("재고 부족 시 예외 발생")
     void decreaseStockInsufficientTest() {
         String stockId = "S001";
         Stock mockStock = Stock.builder()
@@ -183,11 +159,11 @@ public class StockServiceTest {
 
         assertEquals("The quantity is larger than the stock: S001", exception.getMessage());
 
-        verify(valueOperations, never()).set(anyString(), any());
-        verify(localCache, never()).put(anyString(), any());
+        verify(stockRepository, times(1)).findByStockId(stockId);
     }
 
     @Test
+    @DisplayName("재고 수정 시")
     void updateStockTest() throws Exception {
         // Given
         String stockId = "1234";
@@ -202,8 +178,6 @@ public class StockServiceTest {
         StockDto updatedDto = new StockDto();
         updatedDto.setStock(50L); // Updated stock (30 → 50)
 
-        String cacheKey = STOCK_KEY_PREFIX + stockId;
-        String expectedMessage = "Updated stock-" + cacheKey;
 
         // Mock setup
         when(stockRepository.findByStockId(stockId)).thenReturn(Optional.of(existingStock));
@@ -216,9 +190,6 @@ public class StockServiceTest {
             return null;
         }).when(objectMapper).updateValue(any(Stock.class), any(StockDto.class));
 
-        doNothing().when(valueOperations).set(eq(cacheKey), any(Stock.class));
-        doNothing().when(cachePublisher).publish(eq("cache-sync"), eq(expectedMessage));
-
         // When
         Stock result = stockService.updateStock(stockId, updatedDto);
 
@@ -227,15 +198,32 @@ public class StockServiceTest {
         assertEquals(50L, result.getStock());
 
         // Verify mock interactions
-        verify(valueOperations, times(1)).set(eq(cacheKey), any(Stock.class));
-        verify(cachePublisher, times(1)).publish(eq("cache-sync"), eq(expectedMessage));
         verify(stockRepository, times(1)).save(any(Stock.class));
     }
 
     @Test
+    @DisplayName("재고가 없는 경우 수정할 경우")
+    void updateStock_NoStock() {
+        String stockId = "NOT_FOUND";
+        StockDto stockDto = new StockDto("store123", "product456", 100L);
+
+        when(stockRepository.findByStockId(stockId)).thenReturn(Optional.empty());
+
+        Exception exception = assertThrows(EntityNotFoundException.class, () ->
+                stockService.updateStock(stockId, stockDto));
+
+        // 예외 메시지 검증
+        assertTrue(exception.getMessage().contains("Stock not found"));
+
+        // Verify: mapper와 save 메서드가 호출되지 않았는지 확인
+        verify(stockRepository).findByStockId(stockId);
+
+    }
+
+    @Test
+    @DisplayName("재고 삭제")
     void deleteStockTest() {
         String stockId = "S001";
-        String cacheKey = STOCK_KEY_PREFIX + stockId;
         Stock mockStock = Stock.builder()
                 .id(1L)
                 .stockId(stockId)
@@ -251,12 +239,20 @@ public class StockServiceTest {
         stockService.deleteStock(stockId);
 
         verify(stockRepository, times(1)).delete(mockStock);
-        verify(localCache, times(1)).invalidate(cacheKey);
-        verify(redisTemplate, times(1)).delete(cacheKey);
+    }
 
-        ArgumentCaptor<String> messageCaptor = ArgumentCaptor.forClass(String.class);
-        verify(cachePublisher, times(1)).publish(eq("cache-sync"), messageCaptor.capture());
-        assertTrue(messageCaptor.getValue().contains("Deleted stock-stock:"));
+    @Test
+    @DisplayName("재고가 없는 경우 삭제할 경우")
+    void deleteStock_NoStock() {
+        String stockId = "NOT_FOUND";
+        when(stockRepository.findByStockId(stockId)).thenReturn(Optional.empty());
+
+        RuntimeException exception = assertThrows(StockNotFoundException.class, () ->
+                stockService.deleteStock(stockId));
+
+        assertTrue(exception.getMessage().contains("Stock not found"));
+
+        verify(stockRepository).findByStockId(stockId);
     }
 
     /**

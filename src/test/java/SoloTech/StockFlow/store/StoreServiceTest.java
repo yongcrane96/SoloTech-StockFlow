@@ -1,22 +1,18 @@
 package SoloTech.StockFlow.store;
 
-import SoloTech.StockFlow.order.dto.OrderDto;
-import SoloTech.StockFlow.order.exception.OrderNotFoundException;
 import SoloTech.StockFlow.store.dto.StoreDto;
 import SoloTech.StockFlow.store.entity.Store;
 import SoloTech.StockFlow.store.exception.StoreNotFoundException;
 import SoloTech.StockFlow.store.repository.StoreRepository;
 import SoloTech.StockFlow.store.service.StoreService;
-import SoloTech.StockFlow.cache.CachePublisher;
+import cn.hutool.core.lang.Snowflake;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.github.benmanes.caffeine.cache.Cache;
 import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -39,22 +35,13 @@ public class StoreServiceTest {
     private ObjectMapper mapper;
 
     @Mock
-    private Cache<String, Object> localCache;
-
-    @Mock
     private RedisTemplate<String, Object> redisTemplate;
-
-    @Mock
-    private CachePublisher cachePublisher;
 
     @InjectMocks
     private StoreService storeService;
 
     @Mock
     private ValueOperations<String, Object> valueOperations; // Redis 값 조작 인터페이스 Mock
-
-    private static final String STORE_KEY_PREFIX = "store:";
-
 
     @BeforeEach
     void setUp() {
@@ -67,6 +54,9 @@ public class StoreServiceTest {
     void createStoreTest() {
         StoreDto storeDto = new StoreDto("새로운 상점", "서울 강남");
         Store newStore = new Store(2L, "123456789", "새로운 상점", "서울 강남");
+
+        Snowflake snowflake = new Snowflake(1, 1);
+        newStore.setStoreId(String.valueOf(snowflake.nextId()));
 
         when(mapper.convertValue(any(StoreDto.class), eq(Store.class))).thenReturn(newStore);
         when(storeRepository.saveAndFlush(any(Store.class))).thenReturn(newStore);

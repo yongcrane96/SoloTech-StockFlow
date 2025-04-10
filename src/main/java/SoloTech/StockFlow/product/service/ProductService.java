@@ -4,6 +4,7 @@ import SoloTech.StockFlow.common.annotations.Cached;
 import SoloTech.StockFlow.common.cache.CacheType;
 import SoloTech.StockFlow.product.dto.ProductDto;
 import SoloTech.StockFlow.product.entity.Product;
+import SoloTech.StockFlow.product.exception.ProductNotFoundException;
 import SoloTech.StockFlow.product.repository.ProductRepository;
 import cn.hutool.core.lang.Snowflake;
 import com.fasterxml.jackson.databind.JsonMappingException;
@@ -41,7 +42,7 @@ public class ProductService {
     @Cached(prefix = "product:", key = "#productId", ttl = 3600, type = CacheType.READ, cacheNull = true)
     public Product getProduct(String productId) {
         Product dbProduct = productRepository.findByProductId(productId)
-            .orElseThrow(()-> new RuntimeException("Product not found : " + productId));
+            .orElseThrow(()-> new ProductNotFoundException("Product not found : " + productId));
 
         return dbProduct;
     }
@@ -63,7 +64,7 @@ public class ProductService {
     @Cached(prefix = "product:", key = "#productId", ttl = 3600, type = CacheType.DELETE, cacheNull = true)
     public void deleteProduct(String productId) {
         Product product = productRepository.findByProductId(productId)
-                .orElseThrow(()-> new RuntimeException("Product not found : " + productId));
+                .orElseThrow(()-> new ProductNotFoundException("Product not found : " + productId));
         productRepository.delete(product);
     }
 }

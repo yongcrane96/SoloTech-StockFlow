@@ -6,6 +6,7 @@ import SoloTech.StockFlow.common.cache.CacheType;
 import SoloTech.StockFlow.stock.dto.StockDto;
 import SoloTech.StockFlow.stock.entity.Stock;
 import SoloTech.StockFlow.stock.repository.StockRepository;
+import SoloTech.StockFlow.store.exception.StoreNotFoundException;
 import cn.hutool.core.lang.Snowflake;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -44,7 +45,7 @@ public class StockService {
     @Cached(prefix = "stock:", key = "#stockId", ttl = 3600, type = CacheType.READ, cacheNull = true)
     public Stock getStock(String stockId) {
         Stock dbStock = stockRepository.findByStockId(stockId)
-                .orElseThrow(() -> new RuntimeException("StockId not found : " + stockId));
+                .orElseThrow(() -> new StoreNotFoundException("StockId not found : " + stockId));
 
         return dbStock;
     }
@@ -81,7 +82,7 @@ public class StockService {
                 .orElseThrow(() -> new RuntimeException("Stock not found: " + stockId));
 
         // 수량 검사
-        if (!stock.decrease(quantity)) throw new RuntimeException("The quantity is larger than the stock: " + stockId);
+        if (!stock.decrease(quantity)) throw new StoreNotFoundException("The quantity is larger than the stock: " + stockId);
 
         Stock updatedStock = stockRepository.save(stock);
 
@@ -92,7 +93,7 @@ public class StockService {
     @Cached(prefix = "stock:", key = "#stockId", ttl = 3600, type = CacheType.DELETE, cacheNull = true)
     public void deleteStock(String stockId) {
         Stock stock = stockRepository.findByStockId(stockId)
-                .orElseThrow(() -> new RuntimeException("StockId not found : " + stockId));
+                .orElseThrow(() -> new StoreNotFoundException("StockId not found : " + stockId));
         stock.setDeleted(true);
         stockRepository.save(stock);
         stockRepository.delete(stock);

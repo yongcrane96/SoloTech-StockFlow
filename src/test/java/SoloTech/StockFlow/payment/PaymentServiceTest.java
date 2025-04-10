@@ -2,20 +2,25 @@ package SoloTech.StockFlow.payment;
 
 import SoloTech.StockFlow.payment.entity.Payment;
 import SoloTech.StockFlow.payment.entity.PaymentStatus;
+import SoloTech.StockFlow.payment.exception.PaymentFailedException;
 import SoloTech.StockFlow.payment.repository.PaymentRepository;
 import SoloTech.StockFlow.payment.service.PaymentService;
 import SoloTech.StockFlow.store.dto.StoreDto;
 import SoloTech.StockFlow.store.entity.Store;
+import SoloTech.StockFlow.store.exception.StoreNotFoundException;
+import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 
+import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import SoloTech.StockFlow.cache.CachePublisher;
 import SoloTech.StockFlow.payment.dto.PaymentDto;
 import cn.hutool.core.lang.Snowflake;
@@ -68,35 +73,8 @@ public class PaymentServiceTest {
         doNothing().when(valueOperations).set(anyString(), any(), any());
     }
 
-
     @Test
-    void getPaymentTest() {
-        // Payment 객체 준비
-        Payment mockPayment = new Payment();
-        mockPayment.setPaymentId("P12345");
-        mockPayment.setOrderId("O12345");
-        mockPayment.setAmount(10000L);
-        mockPayment.setPaymentMethod("Credit Card");
-        mockPayment.setPaymentStatus(PaymentStatus.Success);
-
-        // PaymentRepository의 findByPaymentId 메서드가 mockPayment 반환하도록 설정
-        Mockito.when(paymentRepository.findByPaymentId(any(String.class)))
-                .thenReturn(java.util.Optional.of(mockPayment));
-
-        // 테스트 실행
-        Payment result = paymentService.readPayment("P12345");
-
-        // 검증
-        assertNotNull(result);
-        assertEquals("P12345", result.getPaymentId());
-        assertEquals("O12345", result.getOrderId());
-        assertEquals(10000L, result.getAmount());
-        assertEquals("Credit Card", result.getPaymentMethod());
-        assertEquals(PaymentStatus.Success, result.getPaymentStatus());
-
-    }
-
-    @Test
+    @DisplayName("결제 생성")
     void createPaymentTest() {
         // Given
         PaymentDto paymentDto = new PaymentDto(
@@ -113,7 +91,6 @@ public class PaymentServiceTest {
 
         long fakeSnowflakeId = 123456789L;
         String expectedPaymentId = String.valueOf(fakeSnowflakeId);
-        String cacheKey = PAYMENT_KEY_PREFIX + expectedPaymentId;
 
         Payment savedPayment = Payment.builder()
                 .id(1L)
@@ -142,43 +119,38 @@ public class PaymentServiceTest {
         verify(mapper).convertValue(eq(paymentDto), eq(Payment.class));
         verify(snowflake).nextId();
         verify(paymentRepository).saveAndFlush(any(Payment.class));
-        verify(redisTemplate.opsForValue(), times(1)).set(eq(cacheKey), eq(savedPayment), eq(Duration.ofHours(1)));
-        verify(localCache, times(1)).put(eq(cacheKey), eq(savedPayment));
     }
 
     @Test
-    void readPaymentTest() {
-        // Given
-        String paymentId = "P12345";
-        String cacheKey = PAYMENT_KEY_PREFIX + paymentId;
-        Payment mockPayment = Payment.builder()
-                .id(1L)
-                .paymentId(paymentId)
-                .orderId("O12345")
-                .amount(10000L)
-                .paymentMethod("Credit Card")
-                .paymentStatus(PaymentStatus.PAID)
-                .build();
+    @DisplayName("결제 조회")
+    void getPaymentTest() {
+        // Payment 객체 준비
+        Payment mockPayment = new Payment();
+        mockPayment.setPaymentId("P12345");
+        mockPayment.setOrderId("O12345");
+        mockPayment.setAmount(10000L);
+        mockPayment.setPaymentMethod("Credit Card");
+        mockPayment.setPaymentStatus(PaymentStatus.Success);
 
-        when(localCache.getIfPresent(cacheKey)).thenReturn(null);
-        when(redisTemplate.opsForValue().get(cacheKey)).thenReturn(null);
-        when(paymentRepository.findByPaymentId(paymentId)).thenReturn(Optional.of(mockPayment));
+        // PaymentRepository의 findByPaymentId 메서드가 mockPayment 반환하도록 설정
+        Mockito.when(paymentRepository.findByPaymentId(any(String.class)))
+                .thenReturn(java.util.Optional.of(mockPayment));
 
-        // When
-        Payment result = paymentService.readPayment(paymentId);
+        // 테스트 실행
+        Payment result = paymentService.readPayment("P12345");
 
-        // Then
+        // 검증
         assertNotNull(result);
-        assertEquals(paymentId, result.getPaymentId());
+        assertEquals("P12345", result.getPaymentId());
+        assertEquals("O12345", result.getOrderId());
+        assertEquals(10000L, result.getAmount());
+        assertEquals("Credit Card", result.getPaymentMethod());
+        assertEquals(PaymentStatus.Success, result.getPaymentStatus());
 
-        verify(localCache, times(1)).getIfPresent(cacheKey);
-        verify(redisTemplate.opsForValue(), times(1)).get(cacheKey);
-        verify(paymentRepository, times(1)).findByPaymentId(paymentId);
-        verify(redisTemplate.opsForValue(), times(1)).set(eq(cacheKey), eq(mockPayment));
-        verify(localCache, times(1)).put(eq(cacheKey), eq(mockPayment));
     }
 
     @Test
+    @DisplayName("결제 수정 시")
     void updatePaymentTest() throws Exception {
         // Given
         String paymentId = "P12345";
@@ -193,9 +165,6 @@ public class PaymentServiceTest {
 
         PaymentDto updateDto = new PaymentDto("O12345", 12000L, "Debit Card", "PAID");
 
-        String cacheKey = PAYMENT_KEY_PREFIX + paymentId;
-        String expectedMessage = "Updated payment-" + cacheKey;
-
         when(paymentRepository.findByPaymentId(paymentId)).thenReturn(Optional.of(mockPayment));
         when(paymentRepository.save(any(Payment.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -208,10 +177,6 @@ public class PaymentServiceTest {
             return null;
         }).when(mapper).updateValue(any(Payment.class), any(PaymentDto.class));
 
-        // 캐시 저장 Mock
-        doNothing().when(valueOperations).set(eq(cacheKey), any(Payment.class), eq(Duration.ofHours(1)));
-        doNothing().when(cachePublisher).publish(eq("cache-sync"), eq(expectedMessage));
-
         // When
         Payment updatedPayment = paymentService.updatePayment(paymentId, updateDto);
 
@@ -221,17 +186,35 @@ public class PaymentServiceTest {
         assertEquals("Debit Card", updatedPayment.getPaymentMethod());
         assertEquals(PaymentStatus.PAID, updatedPayment.getPaymentStatus());
 
-        verify(valueOperations, times(1)).set(eq(cacheKey), eq(updatedPayment), eq(Duration.ofHours(1)));
-        verify(cachePublisher, times(1)).publish(eq("cache-sync"), eq(expectedMessage));
         verify(paymentRepository, times(1)).save(any(Payment.class));
     }
 
+    @Test
+    @DisplayName("결제가 없는 경우 수정할 경우")
+    void updatePayment_NoPayment() {
+        String paymentId = "NOT_FOUND";
+        PaymentDto paymentDto = new PaymentDto(
+                "order123", 15000L, "카드", "완료" // 한글 상태값
+        );
+
+        when(paymentRepository.findByPaymentId(paymentId)).thenReturn(Optional.empty());
+
+        // When & Then: 서비스 메서드 호출 시 예외가 발생하는지 확인
+        Exception exception = assertThrows(EntityNotFoundException.class,
+                () -> paymentService.updatePayment(paymentId, paymentDto));
+
+        // 예외 메시지 검증
+        assertTrue(exception.getMessage().contains("Payment not found"));
+
+        // Verify: mapper와 save 메서드가 호출되지 않았는지 확인
+        verify(paymentRepository).findByPaymentId(paymentId);
+    }
 
     @Test
+    @DisplayName("결제 삭제")
     void deletePaymentTest() {
         // Given
         String paymentId = "P12345";
-        String cacheKey = PAYMENT_KEY_PREFIX + paymentId;
         Payment mockPayment = Payment.builder()
                 .id(1L)
                 .paymentId(paymentId)
@@ -248,8 +231,19 @@ public class PaymentServiceTest {
 
         // Then
         verify(paymentRepository, times(1)).delete(mockPayment);
-        verify(localCache, times(1)).invalidate(cacheKey);
-        verify(redisTemplate, times(1)).delete(cacheKey);
-        verify(cachePublisher, times(1)).publish(eq("cache-sync"), contains("Deleted payment-payment:"));
+    }
+
+    @Test
+    @DisplayName("결제가 없는 경우 삭제할 경우")
+    void deletePayment_NoPayment() {
+        String paymentId = "NOT_FOUND";
+        when(paymentRepository.findByPaymentId(paymentId)).thenReturn(Optional.empty());
+
+        RuntimeException exception = assertThrows(PaymentFailedException.class, () ->
+                paymentService.deletePayment(paymentId));
+
+        assertTrue(exception.getMessage().contains("Payment not found"));
+        verify(paymentRepository).findByPaymentId(paymentId);
+
     }
 }

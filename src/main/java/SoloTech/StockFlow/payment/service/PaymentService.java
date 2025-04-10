@@ -5,6 +5,7 @@ import SoloTech.StockFlow.common.cache.CacheType;
 import SoloTech.StockFlow.payment.dto.PaymentDto;
 import SoloTech.StockFlow.payment.entity.Payment;
 import SoloTech.StockFlow.payment.entity.PaymentStatus;
+import SoloTech.StockFlow.payment.exception.PaymentFailedException;
 import SoloTech.StockFlow.payment.repository.PaymentRepository;
 import cn.hutool.core.lang.Snowflake;
 import com.fasterxml.jackson.databind.JsonMappingException;
@@ -66,7 +67,7 @@ public class PaymentService {
     @Cached(prefix = "payment:", key = "#paymentId", ttl = 3600, type = CacheType.DELETE, cacheNull = true)
     public void deletePayment(String paymentId) {
         Payment payment = paymentRepository.findByPaymentId(paymentId)
-                .orElseThrow(() -> new RuntimeException("Payment not found: " + paymentId));
+                .orElseThrow(() -> new PaymentFailedException("Payment not found: " + paymentId));
         paymentRepository.delete(payment);
     }
 }
