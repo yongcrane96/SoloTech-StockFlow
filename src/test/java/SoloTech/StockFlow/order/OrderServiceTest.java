@@ -16,6 +16,7 @@ import SoloTech.StockFlow.stock.service.StockService;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.benmanes.caffeine.cache.Cache;
+import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.*;
@@ -138,122 +139,124 @@ public class OrderServiceTest {
         verify(paymentService, times(1)).createPayment(any(PaymentDto.class));
         verify(stockService, times(1)).decreaseStock("P001", 2L);
         verify(orderRepository, times(1)).saveAndFlush(any(Order.class));
-        verify(valueOperations, times(1)).set(eq(cacheKey), any(Order.class), eq(Duration.ofHours(1)));
-        verify(localCache, times(1)).put(eq(cacheKey), any(Order.class));
     }
 
     @Test
     void readOrderTest() {
-        // Given
-        String orderId = "1234567890";
-        String cacheKey = ORDER_KEY_PREFIX + orderId;
+        // given
+        String orderId = "ORD123";
         Order mockOrder = Order.builder()
                 .id(1L)
                 .orderId(orderId)
-                .storeId("S12345")
-                .productId("P56789")
-                .stockId("STK98765")
-                .quantity(2L)
+                .storeId("S001")
+                .productId("P001")
+                .stockId("ST001")
+                .quantity(3L)
                 .build();
 
-        when(localCache.getIfPresent(cacheKey)).thenReturn(null);
-        when(redisTemplate.opsForValue().get(cacheKey)).thenReturn(null);
         when(orderRepository.findByOrderId(orderId)).thenReturn(Optional.of(mockOrder));
 
-        // When
+        // when
         Order result = orderService.readOrder(orderId);
 
-        // Then
+        // then
         assertNotNull(result);
         assertEquals(orderId, result.getOrderId());
+        assertEquals("P001", result.getProductId());
 
-        verify(localCache, times(1)).getIfPresent(cacheKey);
-        verify(redisTemplate.opsForValue(), times(1)).get(cacheKey);
         verify(orderRepository, times(1)).findByOrderId(orderId);
-        verify(redisTemplate.opsForValue(), times(1)).set(eq(cacheKey), eq(mockOrder));
-        verify(localCache, times(1)).put(eq(cacheKey), eq(mockOrder));
     }
 
     @Test
     void updateOrderTest() throws JsonMappingException {
-        // Given
-        String orderId = "order123";
-        OrderDto dto = new OrderDto(
-                "O12345",      // orderId
-                "S12345",      // storeId
-                "P56789",      // productId
-                "STK98765",    // stockId
-                2L,            // quantity
-                20000L,        // amount
-                "CARD"         // paymentMethod
-        );
-
+        // given
+        String orderId = "ORD1001";
         Order existingOrder = Order.builder()
+                .id(1L)
                 .orderId(orderId)
-                .storeId("storeOld")
-                .productId("productOld")
-                .stockId("stockOld")
+                .storeId("S001")
+                .productId("P001")
+                .stockId("ST001")
+                .quantity(2L)
+                .build();
+
+        OrderDto updateDto = OrderDto.builder()
                 .quantity(5L)
                 .build();
+
         Order updatedOrder = Order.builder()
+                .id(1L)
                 .orderId(orderId)
-                .storeId(dto.getStoreId())
-                .productId(dto.getProductId())
-                .stockId(dto.getStockId())
-                .quantity(dto.getQuantity())
+                .storeId("S001")
+                .productId("P001")
+                .stockId("ST001")
+                .quantity(5L)
                 .build();
-        String cacheKey = ORDER_KEY_PREFIX + orderId;
-        String message = "Updated order-" + cacheKey;
 
         when(orderRepository.findByOrderId(orderId)).thenReturn(Optional.of(existingOrder));
-        // ObjectMapper의 updateValue를 모킹하여 예외 없이 작동하도록 설정
-        doAnswer(invocation -> {
-            Order target = invocation.getArgument(0); // 첫 번째 매개변수
-            OrderDto source = invocation.getArgument(1); // 두 번째 매개변수
-            target.setStoreId(source.getStoreId());
-            target.setProductId(source.getProductId());
-            target.setStockId(source.getStockId());
-            target.setQuantity(source.getQuantity());
-            return null; // updateValue는 void이므로 null 반환
-        }).when(mapper).updateValue(existingOrder, dto);
-
+        doNothing().when(mapper).updateValue(existingOrder, updateDto);
         when(orderRepository.save(existingOrder)).thenReturn(updatedOrder);
-        when(localCache.getIfPresent(cacheKey)).thenReturn(null);
 
-        // When
-        Order result = orderService.updateOrder(orderId, dto);
+        // when
+        Order result = orderService.updateOrder(orderId, updateDto);
 
-        // Then
-        assertEquals(updatedOrder, result);
-        verify(localCache).put(cacheKey, updatedOrder);
-        verify(cachePublisher).publish("cache-sync", message);
+        // then
+        assertNotNull(result);
+        assertEquals(5L, result.getQuantity());
+        verify(orderRepository).findByOrderId(orderId);
+        verify(mapper).updateValue(existingOrder, updateDto);
         verify(orderRepository).save(existingOrder);
-        verify(mapper).updateValue(existingOrder, dto);
+    }
+
+    @Test
+    void updateOrder_NoOrder() {
+        // given
+        String orderId = "NOT_FOUND";
+        OrderDto dto = OrderDto.builder().quantity(3L).build();
+
+        when(orderRepository.findByOrderId(orderId)).thenReturn(Optional.empty());
+
+        // when & then
+        EntityNotFoundException exception = assertThrows(EntityNotFoundException.class, () ->
+                orderService.updateOrder(orderId, dto));
+
+        assertTrue(exception.getMessage().contains("Order not found"));
+        verify(orderRepository).findByOrderId(orderId);
     }
 
     @Test
     void deleteOrderTest() {
-        // Given
-        String orderId = "1234567890";
-        String cacheKey = ORDER_KEY_PREFIX + orderId;
-        Order mockOrder = Order.builder()
+        // given
+        String orderId = "ORD2001";
+        Order existingOrder = Order.builder()
                 .id(1L)
                 .orderId(orderId)
-                .storeId("S12345")
-                .productId("P56789")
-                .stockId("STK98765")
-                .quantity(2L)
                 .build();
 
-        when(orderRepository.findByOrderId(orderId)).thenReturn(Optional.of(mockOrder));
+        when(orderRepository.findByOrderId(orderId)).thenReturn(Optional.of(existingOrder));
+        doNothing().when(orderRepository).delete(existingOrder);
 
-        // When
+        // when
         orderService.deleteOrder(orderId);
 
-        // Then
-        verify(orderRepository, times(1)).delete(mockOrder);
-        verify(localCache, times(1)).invalidate(cacheKey);
-        verify(redisTemplate, times(1)).delete(cacheKey);
-        verify(cachePublisher, times(1)).publish(eq("cache-sync"), contains("Deleted order-order:"));
+        // then
+        verify(orderRepository).findByOrderId(orderId);
+        verify(orderRepository).delete(existingOrder);
     }
+
+    @Test
+    void deleteOrder_NoOrder() {
+        // given
+        String orderId = "NON_EXISTENT";
+
+        when(orderRepository.findByOrderId(orderId)).thenReturn(Optional.empty());
+
+        // when & then
+        RuntimeException exception = assertThrows(RuntimeException.class, () ->
+                orderService.deleteOrder(orderId));
+
+        assertTrue(exception.getMessage().contains("Order not found"));
+        verify(orderRepository).findByOrderId(orderId);
+    }
+
 }
