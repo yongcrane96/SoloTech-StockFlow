@@ -10,10 +10,12 @@ import SoloTech.StockFlow.order.repository.OrderRepository;
 import SoloTech.StockFlow.payment.dto.PaymentDto;
 import SoloTech.StockFlow.payment.entity.Payment;
 import SoloTech.StockFlow.payment.entity.PaymentStatus;
+import SoloTech.StockFlow.payment.exception.PaymentFailedException;
 import SoloTech.StockFlow.payment.service.PaymentService;
 import SoloTech.StockFlow.product.entity.Product;
 import SoloTech.StockFlow.product.service.ProductService;
 import SoloTech.StockFlow.stock.entity.Stock;
+import SoloTech.StockFlow.stock.exception.StockNotFoundException;
 import SoloTech.StockFlow.stock.service.StockService;
 import cn.hutool.core.lang.Snowflake;
 import com.fasterxml.jackson.databind.JsonMappingException;
@@ -55,7 +57,7 @@ public class OrderService {
         // 2. 재고 확인
         Stock stock = stockService.getStock(dto.getProductId());
         if (stock.getStock() < dto.getQuantity()) {
-            throw new OrderCreationException("Insufficient stock for product: " + dto.getProductId());
+            throw new StockNotFoundException("Insufficient stock for product: " + dto.getProductId());
         }
 
         // 3. 결제 처리
@@ -63,7 +65,7 @@ public class OrderService {
         PaymentDto paymentDto = new PaymentDto(dto.getOrderId(), dto.getAmount(), dto.getPaymentMethod(), initialPaymentStatus);
         Payment payment = paymentService.createPayment(paymentDto);
         if (!PaymentStatus.Success.equals(payment.getPaymentStatus())) {
-            throw new OrderCreationException("Payment failed for order: " + dto.getOrderId());
+            throw new PaymentFailedException("Payment failed for order: " + dto.getOrderId());
         }
 
         stockService.decreaseStock(dto.getProductId(), dto.getQuantity());
