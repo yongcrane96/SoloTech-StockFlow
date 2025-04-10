@@ -12,6 +12,9 @@ import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.reflect.MethodSignature;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+
 import static SoloTech.StockFlow.common.util.CacheKeyUtil.*;
 import static SoloTech.StockFlow.common.cache.CacheType.*;
 import java.lang.reflect.Method;
@@ -44,6 +47,8 @@ public class CacheAspect {
             ttl = DEFAULT_TTL;
         }
 
+        final long finalTtl = ttl;
+
         MethodSignature signature = (MethodSignature) joinPoint.getSignature();
         Method method = signature.getMethod();
         String key = generateKey(keyExpression, method, joinPoint.getArgs());
@@ -65,7 +70,7 @@ public class CacheAspect {
 
                 result = joinPoint.proceed();
                 if (result != null || cached.cacheNull()) { // null 값도 캐싱 처리
-                    redisTemplate.opsForValue().set(cacheKey, result, Duration.ofSeconds(ttl));
+                    redisTemplate.opsForValue().set(cacheKey, result, Duration.ofSeconds(finalTtl));
                     localCache.put(cacheKey, result);
                     log.info("[READ] Cached: {}", cacheKey);
                 }
@@ -74,14 +79,34 @@ public class CacheAspect {
 
             case WRITE -> {
                 result = joinPoint.proceed();
-                if (result != null || cached.cacheNull()) {
-                    redisTemplate.opsForValue().set(cacheKey, result, Duration.ofSeconds(ttl));
+
+                if ((result != null || cached.cacheNull())
+                && TransactionSynchronizationManager.isSynchronizationActive()) {
+
+                    Object finalResult = result;
+
+                    TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                        @Override
+                        public void afterCommit() {
+                            redisTemplate.opsForValue().set(cacheKey, result, Duration.ofSeconds(finalTtl));
+                            localCache.put(cacheKey, result);
+
+                            String message = buildEventMessage(WRITE, prefix, key);
+                            cachePublisher.publish(getDefaultChannel(), message);
+
+                            log.info("[WRITE] Cached and published: {}, message: {}", cacheKey, message);
+                        }
+                    });
+                }
+                else{
+                    // 트랜잭션이 없을 경우 즉시 캐싱
+                    redisTemplate.opsForValue().set(cacheKey, result, Duration.ofSeconds(finalTtl));
                     localCache.put(cacheKey, result);
 
                     String message = buildEventMessage(WRITE, prefix, key);
                     cachePublisher.publish(getDefaultChannel(), message);
 
-                    log.info("[WRITE] Cached and published: {}, message: {}", cacheKey, message);
+                    log.info("[WRITE] Cached immediately (no TX) and published: {}, message: {}", cacheKey, message);
                 }
                 return result;
             }
