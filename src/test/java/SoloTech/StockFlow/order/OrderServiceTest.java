@@ -3,6 +3,7 @@ package SoloTech.StockFlow.order;
 import SoloTech.StockFlow.cache.CachePublisher;
 import SoloTech.StockFlow.order.dto.OrderDto;
 import SoloTech.StockFlow.order.entity.Order;
+import SoloTech.StockFlow.order.exception.OrderNotFoundException;
 import SoloTech.StockFlow.order.repository.OrderRepository;
 import SoloTech.StockFlow.order.service.OrderService;
 import SoloTech.StockFlow.payment.dto.PaymentDto;
@@ -18,6 +19,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.benmanes.caffeine.cache.Cache;
 import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.*;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -40,9 +42,6 @@ public class OrderServiceTest {
 
     @Mock
     private Cache<String, Object> localCache;
-
-    @Mock
-    private CachePublisher cachePublisher;
 
     @Mock
     private ObjectMapper mapper; // ✅ ObjectMapper 추가
@@ -71,6 +70,7 @@ public class OrderServiceTest {
     }
 
     @Test
+    @DisplayName("주문 생성")
     void createOrderTest() {
         // Given
         OrderDto orderDto = new OrderDto(
@@ -142,6 +142,7 @@ public class OrderServiceTest {
     }
 
     @Test
+    @DisplayName("주문 읽기")
     void readOrderTest() {
         // given
         String orderId = "ORD123";
@@ -168,6 +169,7 @@ public class OrderServiceTest {
     }
 
     @Test
+    @DisplayName("주문 수정 시")
     void updateOrderTest() throws JsonMappingException {
         // given
         String orderId = "ORD1001";
@@ -209,6 +211,7 @@ public class OrderServiceTest {
     }
 
     @Test
+    @DisplayName("주문이 없는 경우 수정할 경우")
     void updateOrder_NoOrder() {
         // given
         String orderId = "NOT_FOUND";
@@ -225,6 +228,7 @@ public class OrderServiceTest {
     }
 
     @Test
+    @DisplayName("주문 삭제")
     void deleteOrderTest() {
         // given
         String orderId = "ORD2001";
@@ -245,6 +249,7 @@ public class OrderServiceTest {
     }
 
     @Test
+    @DisplayName("주문이 없는 경우 삭제할 경우")
     void deleteOrder_NoOrder() {
         // given
         String orderId = "NON_EXISTENT";
@@ -252,7 +257,7 @@ public class OrderServiceTest {
         when(orderRepository.findByOrderId(orderId)).thenReturn(Optional.empty());
 
         // when & then
-        RuntimeException exception = assertThrows(RuntimeException.class, () ->
+        RuntimeException exception = assertThrows(OrderNotFoundException.class, () ->
                 orderService.deleteOrder(orderId));
 
         assertTrue(exception.getMessage().contains("Order not found"));

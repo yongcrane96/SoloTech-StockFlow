@@ -1,6 +1,7 @@
 package SoloTech.StockFlow.store.dto;
 
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 
 /**
@@ -10,6 +11,7 @@ import lombok.Data;
  * @author  yhkim
  */
 
+@Builder
 @Data
 @AllArgsConstructor
 public class StoreDto {

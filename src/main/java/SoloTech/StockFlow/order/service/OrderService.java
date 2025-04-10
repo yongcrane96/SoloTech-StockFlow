@@ -5,6 +5,7 @@ import SoloTech.StockFlow.common.annotations.RedissonLock;
 import SoloTech.StockFlow.common.cache.CacheType;
 import SoloTech.StockFlow.order.dto.OrderDto;
 import SoloTech.StockFlow.order.entity.Order;
+import SoloTech.StockFlow.order.exception.OrderCreationException;
 import SoloTech.StockFlow.order.repository.OrderRepository;
 import SoloTech.StockFlow.payment.dto.PaymentDto;
 import SoloTech.StockFlow.payment.entity.Payment;
@@ -48,13 +49,13 @@ public class OrderService {
         // 1. 상품 조회
         Product product = productService.getProduct(dto.getProductId());
         if (product == null) {
-            throw new RuntimeException("Product not found: " + dto.getProductId());
+            throw new OrderCreationException("Product not found: " + dto.getProductId());
         }
 
         // 2. 재고 확인
         Stock stock = stockService.getStock(dto.getProductId());
         if (stock.getStock() < dto.getQuantity()) {
-            throw new RuntimeException("Insufficient stock for product: " + dto.getProductId());
+            throw new OrderCreationException("Insufficient stock for product: " + dto.getProductId());
         }
 
         // 3. 결제 처리
@@ -62,7 +63,7 @@ public class OrderService {
         PaymentDto paymentDto = new PaymentDto(dto.getOrderId(), dto.getAmount(), dto.getPaymentMethod(), initialPaymentStatus);
         Payment payment = paymentService.createPayment(paymentDto);
         if (!PaymentStatus.Success.equals(payment.getPaymentStatus())) {
-            throw new RuntimeException("Payment failed for order: " + dto.getOrderId());
+            throw new OrderCreationException("Payment failed for order: " + dto.getOrderId());
         }
 
         stockService.decreaseStock(dto.getProductId(), dto.getQuantity());

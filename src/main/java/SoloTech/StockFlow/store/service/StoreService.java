@@ -7,6 +7,7 @@ import SoloTech.StockFlow.order.entity.Order;
 import SoloTech.StockFlow.order.service.OrderService;
 import SoloTech.StockFlow.store.dto.StoreDto;
 import SoloTech.StockFlow.store.entity.Store;
+import SoloTech.StockFlow.store.exception.StoreNotFoundException;
 import SoloTech.StockFlow.store.repository.StoreRepository;
 import cn.hutool.core.lang.Snowflake;
 import com.fasterxml.jackson.databind.JsonMappingException;
@@ -32,21 +33,9 @@ import java.time.Duration;
 @Service
 @RequiredArgsConstructor
 public class StoreService {
-
-    private static final Logger log = LoggerFactory.getLogger(StoreService.class);
-
     final StoreRepository storeRepository;
 
     final ObjectMapper mapper;
-
-    private static final String STORE_KEY_PREFIX = "store:";
-
-    // 로컬 캐시 (Caffeine)
-    private final Cache<String, Object> localCache;
-    private final RedisTemplate<String, Object> redisTemplate;
-
-    // 메시지 발행 (Pub/Sub) 컴포넌트
-    private final CachePublisher cachePublisher;
 
     @Cached(prefix = "store:", key = "#result.storeId", ttl = 3600, type = CacheType.WRITE, cacheNull = true)
     @Transactional
@@ -64,7 +53,7 @@ public class StoreService {
     @Cached(prefix = "store:", key = "#storeId", ttl = 3600, type = CacheType.READ, cacheNull = true)
     public Store getStore(String storeId) {
         Store dbStore = storeRepository.findByStoreId(storeId)
-                .orElseThrow(() -> new RuntimeException("Store not found: " + storeId));
+                .orElseThrow(() -> new StoreNotFoundException("Store not found: " + storeId));
 
         return dbStore;
     }
@@ -84,7 +73,7 @@ public class StoreService {
     @Cached(prefix = "store:", key = "#storeId", ttl = 3600, type = CacheType.DELETE, cacheNull = true)
     public void deleteStore(String storeId) {
         Store store = storeRepository.findByStoreId(storeId)
-                .orElseThrow(()->new RuntimeException("Store not found: " + storeId));
+                .orElseThrow(()->new StoreNotFoundException("Store not found: " + storeId));
         storeRepository.delete(store);
 }
 }
