@@ -69,8 +69,12 @@ public class CacheAspect {
                 }
 
                 result = joinPoint.proceed();
-                if (result != null || cached.cacheNull()) { // null 값도 캐싱 처리
-                    redisTemplate.opsForValue().set(cacheKey, result, Duration.ofSeconds(finalTtl));
+                if (shouldCache(result, cached)) {
+                    try {
+                        redisTemplate.opsForValue().set(cacheKey, result, Duration.ofSeconds(finalTtl));
+                    } catch (Exception e) {
+                        log.error("[READ] Redis 캐시 저장 실패 - key: {}, error: {}", cacheKey, e.getMessage(), e);
+                    }
                     localCache.put(cacheKey, result);
                     log.info("[READ] Cached: {}", cacheKey);
                 }
@@ -80,32 +84,35 @@ public class CacheAspect {
             case WRITE -> {
                 result = joinPoint.proceed();
 
-                if ((result != null || cached.cacheNull())
-                && TransactionSynchronizationManager.isSynchronizationActive()) {
 
+                if (shouldCache(result, cached) && isTxActive()) {
                     Object finalResult = result;
 
                     TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                         @Override
                         public void afterCommit() {
-                            redisTemplate.opsForValue().set(cacheKey, result, Duration.ofSeconds(finalTtl));
-                            localCache.put(cacheKey, result);
+                            try {
+                                redisTemplate.opsForValue().set(cacheKey, finalResult, Duration.ofSeconds(finalTtl));
+                            } catch (Exception e) {
+                                log.error("[WRITE] Redis 캐시 저장 실패 (TX afterCommit) - key: {}, error: {}", cacheKey, e.getMessage(), e);
+                            }
+                            localCache.put(cacheKey, finalResult);
 
                             String message = buildEventMessage(WRITE, prefix, key);
                             cachePublisher.publish(getDefaultChannel(), message);
-
                             log.info("[WRITE] Cached and published: {}, message: {}", cacheKey, message);
                         }
                     });
-                }
-                else{
-                    // 트랜잭션이 없을 경우 즉시 캐싱
-                    redisTemplate.opsForValue().set(cacheKey, result, Duration.ofSeconds(finalTtl));
+                } else {
+                    try {
+                        redisTemplate.opsForValue().set(cacheKey, result, Duration.ofSeconds(finalTtl));
+                    } catch (Exception e) {
+                        log.error("[WRITE] Redis 캐시 저장 실패 (no TX) - key: {}, error: {}", cacheKey, e.getMessage(), e);
+                    }
                     localCache.put(cacheKey, result);
 
                     String message = buildEventMessage(WRITE, prefix, key);
                     cachePublisher.publish(getDefaultChannel(), message);
-
                     log.info("[WRITE] Cached immediately (no TX) and published: {}, message: {}", cacheKey, message);
                 }
                 return result;
@@ -113,8 +120,11 @@ public class CacheAspect {
 
             case DELETE -> {
                 result = joinPoint.proceed();
-
-                redisTemplate.delete(cacheKey);
+                try {
+                    redisTemplate.delete(cacheKey);
+                } catch (Exception e) {
+                    log.error("[DELETE] Redis 캐시 삭제 실패 - key: {}, error: {}", cacheKey, e.getMessage(), e);
+                }
                 localCache.invalidate(cacheKey);
 
                 String message = buildEventMessage(DELETE, prefix, key);
@@ -128,5 +138,12 @@ public class CacheAspect {
                 return joinPoint.proceed();
             }
         }
+    }
+
+    private boolean shouldCache(Object result, Cached cached) {
+        return result != null || cached.cacheNull();
+    }
+    private boolean isTxActive() {
+        return TransactionSynchronizationManager.isSynchronizationActive();
     }
 }
