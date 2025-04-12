@@ -12,6 +12,9 @@ import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.reflect.MethodSignature;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+
 import static SoloTech.StockFlow.common.util.CacheKeyUtil.*;
 import static SoloTech.StockFlow.common.cache.CacheType.*;
 import java.lang.reflect.Method;
@@ -44,6 +47,8 @@ public class CacheAspect {
             ttl = DEFAULT_TTL;
         }
 
+        final long finalTtl = ttl;
+
         MethodSignature signature = (MethodSignature) joinPoint.getSignature();
         Method method = signature.getMethod();
         String key = generateKey(keyExpression, method, joinPoint.getArgs());
@@ -64,8 +69,12 @@ public class CacheAspect {
                 }
 
                 result = joinPoint.proceed();
-                if (result != null || cached.cacheNull()) { // null 값도 캐싱 처리
-                    redisTemplate.opsForValue().set(cacheKey, result, Duration.ofSeconds(ttl));
+                if (shouldCache(result, cached)) {
+                    try {
+                        redisTemplate.opsForValue().set(cacheKey, result, Duration.ofSeconds(finalTtl));
+                    } catch (Exception e) {
+                        log.error("[READ] Redis 캐시 저장 실패 - key: {}, error: {}", cacheKey, e.getMessage(), e);
+                    }
                     localCache.put(cacheKey, result);
                     log.info("[READ] Cached: {}", cacheKey);
                 }
@@ -74,22 +83,48 @@ public class CacheAspect {
 
             case WRITE -> {
                 result = joinPoint.proceed();
-                if (result != null || cached.cacheNull()) {
-                    redisTemplate.opsForValue().set(cacheKey, result, Duration.ofSeconds(ttl));
+
+
+                if (shouldCache(result, cached) && isTxActive()) {
+                    Object finalResult = result;
+
+                    TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                        @Override
+                        public void afterCommit() {
+                            try {
+                                redisTemplate.opsForValue().set(cacheKey, finalResult, Duration.ofSeconds(finalTtl));
+                            } catch (Exception e) {
+                                log.error("[WRITE] Redis 캐시 저장 실패 (TX afterCommit) - key: {}, error: {}", cacheKey, e.getMessage(), e);
+                            }
+                            localCache.put(cacheKey, finalResult);
+
+                            String message = buildEventMessage(WRITE, prefix, key);
+                            cachePublisher.publish(getDefaultChannel(), message);
+                            log.info("[WRITE] Cached and published: {}, message: {}", cacheKey, message);
+                        }
+                    });
+                } else {
+                    try {
+                        redisTemplate.opsForValue().set(cacheKey, result, Duration.ofSeconds(finalTtl));
+                    } catch (Exception e) {
+                        log.error("[WRITE] Redis 캐시 저장 실패 (no TX) - key: {}, error: {}", cacheKey, e.getMessage(), e);
+                    }
                     localCache.put(cacheKey, result);
 
                     String message = buildEventMessage(WRITE, prefix, key);
                     cachePublisher.publish(getDefaultChannel(), message);
-
-                    log.info("[WRITE] Cached and published: {}, message: {}", cacheKey, message);
+                    log.info("[WRITE] Cached immediately (no TX) and published: {}, message: {}", cacheKey, message);
                 }
                 return result;
             }
 
             case DELETE -> {
                 result = joinPoint.proceed();
-
-                redisTemplate.delete(cacheKey);
+                try {
+                    redisTemplate.delete(cacheKey);
+                } catch (Exception e) {
+                    log.error("[DELETE] Redis 캐시 삭제 실패 - key: {}, error: {}", cacheKey, e.getMessage(), e);
+                }
                 localCache.invalidate(cacheKey);
 
                 String message = buildEventMessage(DELETE, prefix, key);
@@ -103,5 +138,12 @@ public class CacheAspect {
                 return joinPoint.proceed();
             }
         }
+    }
+
+    private boolean shouldCache(Object result, Cached cached) {
+        return result != null || cached.cacheNull();
+    }
+    private boolean isTxActive() {
+        return TransactionSynchronizationManager.isSynchronizationActive();
     }
 }
