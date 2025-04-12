@@ -21,7 +21,7 @@ import org.hibernate.annotations.Where;
 @Where(clause = "deleted = false") // 자동 필터링
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
+@Builder(toBuilder = true)
 public class Stock {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -39,4 +39,5 @@ public class Stock {
 
     @Column(nullable = false)
     private boolean deleted = false; // 기본값 false (소프트 삭제 플래그)
+
 }
