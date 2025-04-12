@@ -8,6 +8,7 @@ import SoloTech.StockFlow.order.service.OrderService;
 import SoloTech.StockFlow.payment.dto.PaymentDto;
 import SoloTech.StockFlow.payment.entity.Payment;
 import SoloTech.StockFlow.payment.entity.PaymentStatus;
+import SoloTech.StockFlow.payment.exception.PaymentFailedException;
 import SoloTech.StockFlow.payment.service.PaymentService;
 import SoloTech.StockFlow.product.entity.Product;
 import SoloTech.StockFlow.product.service.ProductService;
@@ -201,7 +202,7 @@ public class OrderServiceTest {
                 .build();
 
         when(orderRepository.findByOrderId(orderId)).thenReturn(Optional.of(existingOrder));
-        doNothing().when(mapper).updateValue(existingOrder, updateDto);
+//        doNothing().when(mapper).updateValue(existingOrder, updateDto);
         when(orderRepository.save(existingOrder)).thenReturn(updatedOrder);
 
         // when
@@ -641,7 +642,7 @@ public class OrderServiceTest {
                     orderService.createOrder(dto);
                     success.incrementAndGet();
                     actualStock.decrementAndGet(); // 결제 성공만 줄임
-                } catch (OrderCreationException e) {
+                } catch (PaymentFailedException e) {
                     paymentFailure.incrementAndGet();
                 } finally {
                     latch.countDown();
