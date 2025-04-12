@@ -22,6 +22,8 @@ import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
+
 import org.springframework.data.redis.core.ValueOperations;
 
 import static org.mockito.Mockito.*;
@@ -259,37 +261,230 @@ public class StockServiceTest {
      * ✅ 동시성 테스트 (멀티스레드 환경에서 `decreaseStock` 호출)
      */
     @Test
-    void decreaseStockConcurrencyTest() throws InterruptedException {
+    @DisplayName("동시성 재고 감소 테스트 - 모든 요청 성공")
+    void decreaseStockConcurrencySuccessOnlyTest() throws InterruptedException {
+        // Given
         String stockId = "S001";
+        long initialStock = 1000L;
+        int totalRequests = 100; // 요청 수
+        long decreasePerRequest = 5L;
+
         Stock mockStock = Stock.builder()
                 .id(1L)
                 .stockId(stockId)
                 .storeId("W001")
                 .productId("P001")
-                .stock(100L)
-                .deleted(false) // ✅ 소프트 삭제 고려
+                .stock(initialStock)
+                .deleted(false)
                 .build();
-        when(stockRepository.findByStockId("S001")).thenReturn(Optional.of(mockStock));
-        when(stockRepository.save(any(Stock.class))).thenAnswer(invocation -> invocation.getArgument(0)); // 저장된 객체 반환
 
-        int threadCount = 10;
-        ExecutorService executorService = Executors.newFixedThreadPool(threadCount);
-        CountDownLatch latch = new CountDownLatch(threadCount);
+        when(stockRepository.findByStockId(stockId)).thenAnswer(invocation -> Optional.of(mockStock));
+        when(stockRepository.save(any(Stock.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        for (int i = 0; i < threadCount; i++) {
+        ExecutorService executorService = Executors.newFixedThreadPool(32);
+        CountDownLatch latch = new CountDownLatch(totalRequests);
+
+        AtomicInteger successCount = new AtomicInteger(0);
+
+        for (int i = 0; i < totalRequests; i++) {
             executorService.execute(() -> {
                 try {
-                    stockService.decreaseStock("S001", 10L);
+                    synchronized (mockStock){
+                        stockService.decreaseStock(stockId, decreasePerRequest);
+                    }
+                    successCount.incrementAndGet();
                 } finally {
                     latch.countDown();
                 }
             });
         }
 
-        latch.await(); // 모든 스레드가 종료될 때까지 대기
+        latch.await();
+        executorService.shutdown();
 
-        assertEquals(0L, mockStock.getStock()); // 100 - (10 * 10) = 0
+        long expectedStock = initialStock - (decreasePerRequest * totalRequests);
+
+        System.out.println("성공 수량: " + successCount.get());
+        System.out.println("남은 재고: " + mockStock.getStock());
+
+        // Assert
+        assertEquals(totalRequests, successCount.get());
+        assertEquals(expectedStock, mockStock.getStock());
     }
+
+    @Test
+    @DisplayName("동시성 재고 감소 테스트 - 일부 실패 발생")
+    void decreaseStockConcurrencyWithFailureTest() throws InterruptedException {
+        // Given
+        String stockId = "S001";
+        long initialStock = 300L; // 재고: 300
+        int totalRequests = 50; // 요청 수: 50
+        long decreasePerRequest = 10L; // 요청당 차감량: 10
+
+        // 30개만 성공 가능 → 나머지 20개는 실패하게 됨
+
+        Stock mockStock = Stock.builder()
+                .id(1L)
+                .stockId(stockId)
+                .storeId("W001")
+                .productId("P001")
+                .stock(initialStock)
+                .deleted(false)
+                .build();
+
+        when(stockRepository.findByStockId(stockId)).thenAnswer(invocation -> Optional.of(mockStock));
+        when(stockRepository.save(any(Stock.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ExecutorService executorService = Executors.newFixedThreadPool(16);
+        CountDownLatch latch = new CountDownLatch(totalRequests);
+
+        AtomicInteger successCount = new AtomicInteger(0);
+        AtomicInteger failureCount = new AtomicInteger(0);
+
+        for (int i = 0; i < totalRequests; i++) {
+            executorService.execute(() -> {
+                try {
+                    stockService.decreaseStock(stockId, decreasePerRequest);
+                    successCount.incrementAndGet();
+                } catch (RuntimeException e) {
+                    failureCount.incrementAndGet();
+                } finally {
+                    latch.countDown();
+                }
+            });
+        }
+
+        latch.await();
+        executorService.shutdown();
+
+        long expectedSuccess = initialStock / decreasePerRequest;
+        long expectedStock = initialStock - (expectedSuccess * decreasePerRequest);
+
+        System.out.println("총 요청 수: " + totalRequests);
+        System.out.println("성공 수량: " + successCount.get());
+        System.out.println("실패 수량: " + failureCount.get());
+        System.out.println("남은 재고: " + mockStock.getStock());
+
+        // Assert
+        assertEquals(expectedSuccess, successCount.get());
+        assertEquals(totalRequests - expectedSuccess, failureCount.get());
+        assertEquals(expectedStock, mockStock.getStock());
+    }
+
+    @Test
+    @DisplayName("동시성 재고 감소 테스트 - 최대 성공 수 확인")
+    void decreaseStockConcurrency_MaxSuccessTest() throws InterruptedException {
+        // Given
+        String stockId = "S001";
+        long initialStock = 300L;
+        int totalRequests = 1000;
+        long decreasePerRequest = 10L;
+
+        Stock mockStock = Stock.builder()
+                .id(1L)
+                .stockId(stockId)
+                .storeId("W001")
+                .productId("P001")
+                .stock(initialStock)
+                .deleted(false)
+                .build();
+
+        when(stockRepository.findByStockId(stockId)).thenAnswer(invocation -> Optional.of(mockStock));
+        when(stockRepository.save(any(Stock.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ExecutorService executorService = Executors.newFixedThreadPool(100);
+        CountDownLatch latch = new CountDownLatch(totalRequests);
+
+        AtomicInteger successCount = new AtomicInteger(0);
+        AtomicInteger failureCount = new AtomicInteger(0);
+
+        for (int i = 0; i < totalRequests; i++) {
+            executorService.execute(() -> {
+                try {
+                    stockService.decreaseStock(stockId, decreasePerRequest);
+                    successCount.incrementAndGet();
+                } catch (RuntimeException e) {
+                    failureCount.incrementAndGet();
+                } finally {
+                    latch.countDown();
+                }
+            });
+        }
+
+        latch.await();
+        executorService.shutdown();
+
+        long expectedSuccess = initialStock / decreasePerRequest; // 300 / 10 = 30
+        long expectedStock = initialStock - (decreasePerRequest * successCount.get());
+
+        System.out.println("요청 수: " + totalRequests);
+        System.out.println("성공 수: " + successCount.get());
+        System.out.println("실패 수: " + failureCount.get());
+        System.out.println("남은 재고: " + mockStock.getStock());
+
+        // Assert
+        assertEquals(expectedSuccess, successCount.get());
+        assertEquals(expectedStock, mockStock.getStock());
+    }
+
+    @Test
+    @DisplayName("Redisson 분산락 테스트 - 최대 요청량 제한")
+    void decreaseStockConcurrencyWithRedissonLockTest() throws InterruptedException {
+        // Given
+        String stockId = "S001";
+        long initialStock = 300L;
+        int totalRequests = 1000;
+        long decreasePerRequest = 10L;
+
+        Stock stock = Stock.builder()
+                .id(1L)
+                .stockId(stockId)
+                .storeId("W001")
+                .productId("P001")
+                .stock(initialStock)
+                .deleted(false)
+                .build();
+
+        // mock 객체를 항상 새로운 인스턴스로 반환
+        when(stockRepository.findByStockId(stockId))
+                .thenAnswer(invocation -> Optional.of(stock));
+
+        when(stockRepository.save(any(Stock.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        ExecutorService executor = Executors.newFixedThreadPool(64);
+        CountDownLatch latch = new CountDownLatch(totalRequests);
+        AtomicInteger successCount = new AtomicInteger(0);
+        AtomicInteger failureCount = new AtomicInteger(0);
+
+        for (int i = 0; i < totalRequests; i++) {
+            executor.submit(() -> {
+                try {
+                    stockService.decreaseStock(stockId, decreasePerRequest);
+                    successCount.incrementAndGet();
+                } catch (Exception e) {
+                    failureCount.incrementAndGet();
+                } finally {
+                    latch.countDown();
+                }
+            });
+        }
+
+        latch.await();
+        executor.shutdown();
+
+        long expectedMaxSuccess = initialStock / decreasePerRequest;
+        long expectedRemainingStock = initialStock - (successCount.get() * decreasePerRequest);
+
+        System.out.println("요청 수: " + totalRequests);
+        System.out.println("성공 수: " + successCount.get());
+        System.out.println("실패 수: " + failureCount.get());
+        System.out.println("남은 재고: " + stock.getStock());
+
+        assertEquals(expectedMaxSuccess, successCount.get(), "락이 정상이면 성공 수는 초과하지 않아야 함");
+        assertEquals(0, stock.getStock(), "재고는 0이어야 함");
+    }
+
 
     /**
      * ✅ 캐시 갱신 & Pub/Sub 메시지 발행 확인
