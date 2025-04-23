@@ -10,7 +10,6 @@ import org.aspectj.lang.reflect.MethodSignature;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import com.example.annotations.RedissonLock; // 이 import만 남깁니다.
 
@@ -48,16 +47,8 @@ public class RedissonLockAspect {
 
             // 트랜잭션 종료 후 락 해제를 플래그가 true이고 트랜잭션이 활성화된 경우라면
             if (annotation.transactional() && TransactionSynchronizationManager.isSynchronizationActive()) {
-                TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-                    @Override
-                    public void afterCompletion(int status) {
-                        if (lock.isHeldByCurrentThread()) { // 현재 쓰레드가 이 락을 소유하고 있는지를 확인하는 Redisson 메서드
-                            lock.unlock();
-//                            txLock = true;
-                            log.info("[RedissonLock] 트랜잭션 종료 후 락 해제: {}", lockKey);
-                        }
-                    }
-                });
+                TransactionSynchronizationManager.registerSynchronization(new TransactionSync(lock, lockKey));
+                txLock = true;
             }
 
             // 로직 수행
