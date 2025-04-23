@@ -60,26 +60,20 @@ subprojects {
 		runtimeOnly 'com.mysql:mysql-connector-j'
 		// JPA + MySQL
 		implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
-//		implementation 'mysql:mysql-connector-java:8.0.33'
 
 		// (테스트 관련 의존성)
 		testImplementation 'org.junit.jupiter:junit-jupiter:5.9.2' // JUnit 5
-		testImplementation 'org.mockito:mockito-core:5.2.0' // Mockito
 		testImplementation 'org.springframework.boot:spring-boot-starter-test'
 		testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 		// Swagger (OpenAPI)
 		implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.0.4'
 		// Snowflake ID (고유 ID)
 		implementation 'cn.hutool:hutool-core:5.8.18'
-		// RedissonLock
 		// Spring Boot + Redis 세션 관리
 		implementation 'org.springframework.session:spring-session-data-redis'
 		// RedisTemplate 사용 시 필요
 		implementation 'org.springframework.boot:spring-boot-starter-data-redis'
 		implementation 'org.redisson:redisson-spring-boot-starter:3.20.0'
-//		// Caffeine Cache 기본 라이브러리
-//		implementation 'com.github.ben-manes.caffeine:caffeine:3.1.8'
-
 		testImplementation 'org.mockito:mockito-core:5.2.0' // Mockito
 
 		// Caffeine Cache: (로컬 캐싱 라이브러리)

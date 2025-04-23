@@ -7,12 +7,9 @@ import com.example.store.dto.StoreDto;
 import com.example.store.entity.Store;
 import com.example.store.kafka.StoreEventProducer;
 import com.example.store.service.StoreService;
-import com.fasterxml.jackson.databind.JsonMappingException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.UUID;
 
 @Slf4j
 @RestController
