@@ -1,5 +1,5 @@
 plugins {
-    id 'org.springframework.boot'
+    id 'org.springframework.boot' version '3.4.3'
     id 'com.github.davidmc24.gradle.plugin.avro' version '1.9.1' // 아브로 플러그인 추가
 }
 
@@ -17,28 +17,26 @@ generateAvroJava { // 아브로 스키마 생성
 }
 
 repositories {
+    mavenCentral()
     maven {
         url 'https://packages.confluent.io/maven/' // 아브로 레포지토리 추가
     }
 }
 
 dependencies {
-    // JPA + MySQL
-    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
-    // MySQL Driver
-    runtimeOnly 'com.mysql:mysql-connector-j'
-    // Spring Kafka
-    implementation 'org.springframework.kafka:spring-kafka'
-    // Lettuce Redis (필요하다면)
-    implementation 'org.springframework.boot:spring-boot-starter-data-redis'
-    // Spring Boot Starter Security
-    implementation 'org.springframework.boot:spring-boot-starter-security'
-    // Lombok (선택)
-    compileOnly 'org.projectlombok:lombok'
-    annotationProcessor 'org.projectlombok:lombok'
-    // https://mvnrepository.com/artifact/io.confluent/kafka-avro-serializer
-    implementation 'io.confluent:kafka-avro-serializer:7.8.0' // 아프로 시리얼라이저
-    // https://mvnrepository.com/artifact/org.apache.avro/avro
+    // Lombok
+    compileOnly 'org.projectlombok:lombok:1.18.28'
+    annotationProcessor 'org.projectlombok:lombok:1.18.28'
+    // Spring Boot Starter
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa:3.4.3'
+    implementation 'org.springframework.kafka:spring-kafka:3.0.9'
+    implementation 'org.springframework.boot:spring-boot-starter-data-redis:3.4.3'
+    implementation 'org.springframework.boot:spring-boot-starter-security:3.4.3'
+    implementation 'org.springframework.boot:spring-boot-starter-actuator:3.4.3'
+
+    // Avro
     implementation 'org.apache.avro:avro:1.12.0'
-    implementation 'org.springframework.boot:spring-boot-starter-actuator'// 아파치 아브로
+
+    // Kafka Avro Serializer
+    implementation 'io.confluent:kafka-avro-serializer:7.8.0'
 }
