@@ -25,7 +25,7 @@ public class Store {
     private Long id;
 
     @Column(unique = true, nullable = false)
-    private long storeId;
+    private String storeId;
     private String storeName;
     private String address;
 }

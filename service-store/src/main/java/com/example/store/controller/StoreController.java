@@ -28,6 +28,7 @@ public class StoreController {
         long snowflakeId = snowflake.nextId();
         CreateStoreEvent event = new CreateStoreEvent(
                 snowflakeId,
+                dto.getStoreId(),
                 dto.getStoreName(),
                 dto.getAddress()
         );

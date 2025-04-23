@@ -3,7 +3,8 @@
   "name": "CreateStoreEvent",
   "namespace": "com.example.kafka",
   "fields": [
-    { "name": "storeId", "type": "long" },
+    { "name": "id", "type": "long" },
+    { "name": "storeId", "type": "string" },
     { "name": "storeName", "type": "string" },
     { "name": "address", "type": "string" }
   ]

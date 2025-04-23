@@ -15,6 +15,8 @@ import lombok.Data;
 @Data
 @AllArgsConstructor
 public class StoreDto {
+    private long id;
+    private String storeId;
     private String storeName;
     private String address;
 
