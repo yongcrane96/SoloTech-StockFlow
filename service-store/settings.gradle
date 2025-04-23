@@ -1,0 +1,2 @@
+rootProject.name = 'StockFlow '
+include 'service-store'

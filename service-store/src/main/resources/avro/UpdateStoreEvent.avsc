@@ -1,0 +1,10 @@
+{
+  "type": "record",
+  "name": "UpdateStoreEvent",
+  "namespace": "com.example.kafka",
+  "fields": [
+    { "name": "storeId", "type": "string" },
+    { "name": "storeName", "type": "string" },
+    { "name": "address", "type": "string" },
+  ]
+}

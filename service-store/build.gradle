@@ -1,0 +1,47 @@
+plugins {
+    id 'org.springframework.boot' version '3.4.3'
+    id 'com.github.davidmc24.gradle.plugin.avro' version '1.9.1' // 아브로 플러그인 추가
+}
+
+springBoot {
+    mainClass.set('com.example.StoreApplication') // 실제 메인 클래스 경로 지정
+}
+
+bootJar {
+    archiveFileName = 'service-store.jar'
+}
+
+generateAvroJava { // 아브로 스키마 생성
+    source("src/main/resources/avro")
+    include("**/*.avsc")
+}
+
+repositories {
+    maven {
+        url 'https://packages.confluent.io/maven/' // 아브로 레포지토리 추가
+    }
+}
+
+dependencies {
+    // JPA + MySQL
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    // MySQL Driver
+    runtimeOnly 'com.mysql:mysql-connector-j'
+    // Spring Kafka
+    implementation 'org.springframework.kafka:spring-kafka'
+    // Lettuce Redis (필요하다면)
+    implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+    // Spring Boot Starter Security
+    implementation 'org.springframework.boot:spring-boot-starter-security'
+    // Lombok (선택)
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
+    // Kafka Avro Serializer
+    implementation 'io.confluent:kafka-avro-serializer:7.8.0' // 아프로 시리얼라이저
+    // Avro
+    implementation 'org.apache.avro:avro:1.12.0'
+    // Spring Boot Actuator
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+}
+
+
