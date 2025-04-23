@@ -34,7 +34,7 @@ public class RedissonLockAspect {
         RLock lock = redissonClient.getLock(lockKey);
 
         boolean lockable = false;
-
+        boolean txLock = false;
         try {
             // 락 획득 시도
             lockable = lock.tryLock(annotation.waitTime(), annotation.leaseTime(), TimeUnit.MILLISECONDS);
@@ -52,6 +52,7 @@ public class RedissonLockAspect {
                     public void afterCompletion(int status) {
                         if (lock.isHeldByCurrentThread()) { // 현재 쓰레드가 이 락을 소유하고 있는지를 확인하는 Redisson 메서드
                             lock.unlock();
+//                            txLock = true;
                             log.info("[RedissonLock] 트랜잭션 종료 후 락 해제: {}", lockKey);
                         }
                     }
@@ -69,7 +70,7 @@ public class RedissonLockAspect {
         } finally {
             // 트랜잭션 종료 후 해제 설정이 아닐 경우, 직접 해제
             boolean shouldUnlockNow = lockable &&
-                    (!annotation.transactional() || !TransactionSynchronizationManager.isSynchronizationActive());
+                    (!annotation.transactional() || !TransactionSynchronizationManager.isSynchronizationActive() && txLock);
 
                 if(shouldUnlockNow && lock.isHeldByCurrentThread()){
                     lock.unlock();
