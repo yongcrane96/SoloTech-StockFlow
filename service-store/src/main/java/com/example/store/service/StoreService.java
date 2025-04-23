@@ -1,20 +1,18 @@
 package com.example.store.service;
 
-import cn.hutool.core.lang.Snowflake;
 import com.example.annotations.Cached;
 import com.example.cache.CacheType;
 import com.example.kafka.CreateStoreEvent;
 import com.example.kafka.UpdateStoreEvent;
-import com.example.store.dto.StoreDto;
 import com.example.store.entity.Store;
 import com.example.store.exception.StoreNotFoundException;
 import com.example.store.repository.StoreRepository;
-import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 
 /**
  * 상점 서비스
