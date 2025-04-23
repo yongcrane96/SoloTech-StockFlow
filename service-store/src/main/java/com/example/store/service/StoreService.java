@@ -3,6 +3,8 @@ package com.example.store.service;
 import cn.hutool.core.lang.Snowflake;
 import com.example.annotations.Cached;
 import com.example.cache.CacheType;
+import com.example.kafka.CreateStoreEvent;
+import com.example.kafka.UpdateStoreEvent;
 import com.example.store.dto.StoreDto;
 import com.example.store.entity.Store;
 import com.example.store.exception.StoreNotFoundException;
@@ -30,12 +32,13 @@ public class StoreService {
 
     @Cached(prefix = "store:", key = "#result.storeId", ttl = 3600, type = CacheType.WRITE, cacheNull = true)
     @Transactional
-    public Store createStore(StoreDto dto) {
-        Store store = mapper.convertValue(dto, Store.class);
-        Snowflake snowflake = new Snowflake(1,1);
-        long snowflakeId = snowflake.nextId();
+    public Store createStore(CreateStoreEvent event) {
+        Store store = Store.builder()
+                .storeId(event.getStoreId())
+                .storeName(event.getStoreName())
+                .address(event.getAddress())
+                .build();
 
-        store.setStoreId(String.valueOf(snowflakeId));
         Store savedStore = storeRepository.saveAndFlush(store);
 
         return savedStore;
@@ -51,11 +54,14 @@ public class StoreService {
 
     @Cached(prefix = "store:", key = "#result.storeId", ttl = 3600, type = CacheType.WRITE, cacheNull = true)
     @Transactional
-    public Store updateStore(String storeId, StoreDto dto) throws JsonMappingException {
+    public Store updateStore(UpdateStoreEvent event) {
+        String storeId = event.getStoreId();
         Store store = storeRepository.findByStoreId(storeId)
                 .orElseThrow(()-> new EntityNotFoundException("Store not found: " + storeId));
 
-        mapper.updateValue(store,dto);
+        store.setStoreName(event.getStoreName());
+        store.setAddress(event.getAddress());
+
         Store savedStore = storeRepository.save(store);
 
         return savedStore;

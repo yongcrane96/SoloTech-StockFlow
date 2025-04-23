@@ -1,6 +1,6 @@
 package com.example.config;
 
-import com.example.store.kafka.Event;
+import com.example.kafka.Event;
 import io.confluent.kafka.serializers.KafkaAvroSerializer;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.producer.ProducerConfig;

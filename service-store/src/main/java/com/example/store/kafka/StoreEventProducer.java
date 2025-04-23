@@ -1,5 +1,6 @@
 package com.example.store.kafka;
 
+import com.example.kafka.Event;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.kafka.core.KafkaTemplate;
