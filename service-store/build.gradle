@@ -17,6 +17,7 @@ generateAvroJava { // 아브로 스키마 생성
 }
 
 repositories {
+    mavenCentral()
     maven {
         url 'https://packages.confluent.io/maven/' // 아브로 레포지토리 추가
     }
@@ -25,6 +26,7 @@ repositories {
 dependencies {
     // JPA + MySQL
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+//    implementation 'org.springframework.boot:spring-boot-starter-data-jpa:3.4.3'
     // MySQL Driver
     runtimeOnly 'com.mysql:mysql-connector-j'
     // Spring Kafka
