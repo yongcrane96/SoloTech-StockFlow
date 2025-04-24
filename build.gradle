@@ -4,13 +4,17 @@ plugins {
 	id 'io.spring.dependency-management' version '1.1.7'
 }
 
-group = 'SoloTech '
-version = '0.0.1-SNAPSHOT'
-
 java {
 	toolchain {
 		languageVersion = JavaLanguageVersion.of(17)
 	}
+}
+
+bootJar {
+	enabled = false
+}
+jar {
+	enabled = true
 }
 
 configurations {
@@ -23,53 +27,79 @@ repositories {
 	mavenCentral()
 }
 
-dependencies {
-	// (Spring Boot dependencies)
-	implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
-	implementation 'org.springframework.boot:spring-boot-starter-web'
-	implementation 'org.projectlombok:lombok'
-	annotationProcessor 'org.projectlombok:lombok'
-	compileOnly 'org.projectlombok:lombok'
-	implementation 'com.h2database:h2'
+subprojects {
+	group 'SoloTech '
+	version '0.0.1-SNAPSHOT'
+	sourceCompatibility = '17'
 
-	// MySQL Driver
-	runtimeOnly 'com.mysql:mysql-connector-j'
-	// JPA + MySQL
-	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
-	implementation 'mysql:mysql-connector-java:8.0.33'
+	apply plugin: 'java'
+	apply plugin: 'java-library'
+	apply plugin: 'org.springframework.boot'
+	apply plugin: 'io.spring.dependency-management'
 
-	// (테스트 관련 의존성)
-	testImplementation 'org.junit.jupiter:junit-jupiter:5.9.2' // JUnit 5
-	testImplementation 'org.mockito:mockito-core:5.2.0' // Mockito
-	testImplementation 'org.springframework.boot:spring-boot-starter-test'
-	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
-	// Swagger (OpenAPI)
-	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.0.4'
-	// Snowflake ID (고유 ID)
-	implementation 'cn.hutool:hutool-core:5.8.18'
-	// RedissonLock
-	// Spring Boot + Redis 세션 관리
-	implementation 'org.springframework.session:spring-session-data-redis'
-	// RedisTemplate 사용 시 필요
-	implementation 'org.springframework.boot:spring-boot-starter-data-redis'
-	implementation 'org.redisson:redisson-spring-boot-starter:3.20.0'
-	// Caffeine Cache 기본 라이브러리
-	implementation 'com.github.ben-manes.caffeine:caffeine:3.1.8'
+	configurations {
+		compileOnly {
+			extendsFrom annotationProcessor
+		}
+	}
 
-	testImplementation 'org.junit.jupiter:junit-jupiter:5.9.0'
-	testImplementation 'org.mockito:mockito-core:5.2.0' // Mockito
+	repositories {
+		mavenCentral()
+	}
 
-	// Caffeine Cache: (로컬 캐싱 라이브러리)
-	implementation 'org.springframework.boot:spring-boot-starter-cache'
-	implementation 'com.github.ben-manes.caffeine:caffeine'
-	implementation 'org.springframework.boot:spring-boot-starter-data-redis'
-	implementation 'io.lettuce:lettuce-core'
+	dependencyManagement {
+		imports {
+			mavenBom "org.springframework.cloud:spring-cloud-dependencies:2023.0.3"
+		}
+	}
 
+	dependencies {
+		// (Spring Boot dependencies)
+		implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
+		implementation 'org.springframework.boot:spring-boot-starter-web'
+		implementation 'org.projectlombok:lombok'
+		annotationProcessor 'org.projectlombok:lombok'
+		compileOnly 'org.projectlombok:lombok'
+		implementation 'com.h2database:h2'
 
-	// Spring Boot에서 Caffeine 캐시를 사용하려면 추가
-	implementation 'org.springframework.boot:spring-boot-starter-cache'
-}
+		// MySQL Driver
+		runtimeOnly 'com.mysql:mysql-connector-j'
+		// JPA + MySQL
+		implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+		implementation 'mysql:mysql-connector-java:8.0.33'
 
-test {
-	useJUnitPlatform()  // ✅ JUnit 5 테스트 실행하도록 설정
+		// (테스트 관련 의존성)
+		testImplementation 'org.junit.jupiter:junit-jupiter:5.9.2' // JUnit 5
+		testImplementation 'org.mockito:mockito-core:5.2.0' // Mockito
+		testImplementation 'org.springframework.boot:spring-boot-starter-test'
+		testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+		// Swagger (OpenAPI)
+		implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.0.4'
+		// Snowflake ID (고유 ID)
+		implementation 'cn.hutool:hutool-core:5.8.18'
+		// RedissonLock
+		// Spring Boot + Redis 세션 관리
+		implementation 'org.springframework.session:spring-session-data-redis'
+		// RedisTemplate 사용 시 필요
+		implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+		implementation 'org.redisson:redisson-spring-boot-starter:3.20.0'
+		// Caffeine Cache 기본 라이브러리
+		implementation 'com.github.ben-manes.caffeine:caffeine:3.1.8'
+
+		testImplementation 'org.junit.jupiter:junit-jupiter:5.9.0'
+		testImplementation 'org.mockito:mockito-core:5.2.0' // Mockito
+
+		// Caffeine Cache: (로컬 캐싱 라이브러리)
+		implementation 'org.springframework.boot:spring-boot-starter-cache'
+		implementation 'com.github.ben-manes.caffeine:caffeine'
+		implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+		implementation 'io.lettuce:lettuce-core'
+
+		// Spring Boot에서 Caffeine 캐시를 사용하려면 추가
+		implementation 'org.springframework.boot:spring-boot-starter-cache'
+	}
+
+	test {
+		useJUnitPlatform()  // ✅ JUnit 5 테스트 실행하도록 설정
+	}
 }
