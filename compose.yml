@@ -1,4 +1,152 @@
 services:
+  ### Kafka00
+  kafka00:
+    image: bitnami/kafka:3.7.0
+    restart: unless-stopped
+    container_name: kafka00
+    ports:
+      - '10000:9094'
+    environment:
+      - KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE=true #true면 프로듀서가 보내는 메시지에 따라 토픽 자동 생성
+      - KAFKA_CFG_BROKER_ID=0 #브로커 고유 ID(클러스터 내에서 유일해야함)
+      - KAFKA_CFG_NODE_ID=0 #노드 ID (KRaft 모드에서 브로커와 컨트롤러 역할 식별용)
+      - KAFKA_KRAFT_CLUSTER_ID=HsDBs9l6UUmQq7Y5E6bNlw #KRaft 클러스트 고유 ID (모드 노드 동일)
+      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=0@kafka00:9093,1@kafka01:9093,2@kafka02:9093
+      - KAFKA_CFG_PROCESS_ROLES=controller,broker
+      - ALLOW_PLAINTEXT_LISTENER=yes
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093,EXTERNAL://0.0.0.0:9094
+      # 내부 통신용, 컨트롤러 통신용, 외부 접근용 리스너 포트 각각 설정
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka00:9092,EXTERNAL://127.0.0.1:10000
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=PLAINTEXT
+      - KAFKA_CFG_OFFSETS_TOPIC_REPLICATION_FACTOR=3
+      - KAFKA_CFG_TRANSACTION_STATE_LOG_REPLICATION_FACTOR=3
+      - KAFKA_CFG_TRANSACTION_STATE_LOG_MIN_ISR=2
+    networks:
+      - my_network
+    volumes:
+      - ./volumes/data/kafka/kafka00:/bitnami/kafka
+
+  ### Kafka01
+  kafka01:
+    image: bitnami/kafka:3.7.0
+    restart: unless-stopped
+    container_name: kafka01
+    ports:
+      - '10001:9094'
+    environment:
+      - KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE=true
+      - KAFKA_CFG_BROKER_ID=1
+      - KAFKA_CFG_NODE_ID=1
+      - KAFKA_KRAFT_CLUSTER_ID=HsDBs9l6UUmQq7Y5E6bNlw
+      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=0@kafka00:9093,1@kafka01:9093,2@kafka02:9093
+      - KAFKA_CFG_PROCESS_ROLES=controller,broker
+      - ALLOW_PLAINTEXT_LISTENER=yes
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093,EXTERNAL://0.0.0.0:9094
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka01:9092,EXTERNAL://127.0.0.1:10001
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=PLAINTEXT
+      - KAFKA_CFG_OFFSETS_TOPIC_REPLICATION_FACTOR=3
+      - KAFKA_CFG_TRANSACTION_STATE_LOG_REPLICATION_FACTOR=3
+      - KAFKA_CFG_TRANSACTION_STATE_LOG_MIN_ISR=2
+    networks:
+      - my_network
+    volumes:
+      - ./volumes/data/kafka/kafka01:/bitnami/kafka
+
+  ### Kafka02
+  kafka02:
+    image: bitnami/kafka:3.7.0
+    restart: unless-stopped
+    container_name: kafka02
+    ports:
+      - '10002:9094'
+    environment:
+      - KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE=true
+      - KAFKA_CFG_BROKER_ID=2
+      - KAFKA_CFG_NODE_ID=2
+      - KAFKA_KRAFT_CLUSTER_ID=HsDBs9l6UUmQq7Y5E6bNlw
+      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=0@kafka00:9093,1@kafka01:9093,2@kafka02:9093
+      - KAFKA_CFG_PROCESS_ROLES=controller,broker
+      - ALLOW_PLAINTEXT_LISTENER=yes
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093,EXTERNAL://0.0.0.0:9094
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka02:9092,EXTERNAL://127.0.0.1:10002
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=PLAINTEXT
+      - KAFKA_CFG_OFFSETS_TOPIC_REPLICATION_FACTOR=3
+      - KAFKA_CFG_TRANSACTION_STATE_LOG_REPLICATION_FACTOR=3
+      - KAFKA_CFG_TRANSACTION_STATE_LOG_MIN_ISR=2
+    networks:
+      - my_network
+    volumes:
+      - ./volumes/data/kafka/kafka02:/bitnami/kafka
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    restart: unless-stopped
+    container_name: kafka-ui
+    ports:
+      - '9000:8080'
+    environment:
+      - KAFKA_CLUSTERS_0_NAME=Local-Kraft-Cluster
+      - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=kafka00:9092,kafka01:9092,kafka02:9092
+      - DYNAMIC_CONFIG_ENABLED=true
+      - KAFKA_CLUSTERS_0_AUDIT_TOPICAUDITENABLED=true
+      - KAFKA_CLUSTERS_0_AUDIT_CONSOLEAUDITENABLED=true
+      #- KAFKA_CLUSTERS_0_METRICS_PORT=9999
+      - KAFKA_CLUSTERS_0_SCHEMAREGISTRY=http://schema-registry:8081
+    depends_on:
+      - kafka00
+      - kafka01
+      - kafka02
+      - schema-registry
+    networks:
+      - my_network
+
+  ### Schema Registry
+  schema-registry:
+    image: confluentinc/cp-schema-registry:7.5.0
+    container_name: schema-registry
+    restart: unless-stopped
+    ports:
+      - "9001:8081" # Schema Registry REST API 포트
+    environment:
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: PLAINTEXT://kafka00:9092
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+      SCHEMA_REGISTRY_KAFKASTORE_REPLICATION_FACTOR: 3
+      SCHEMA_REGISTRY_KAFKASTORE_TOPIC_CONFIGS: cleanup.policy=compact
+      SCHEMA_REGISTRY_CONFIG_DELETE_ENABLE: "true"
+    depends_on:
+      - kafka00
+      - kafka01
+      - kafka02
+    networks:
+      - my_network
+
+  redis-cluster:
+    container_name: redis-cluster-6
+    image: grokzen/redis-cluster:7.0.15
+    environment:
+      - IP=0.0.0.0
+      - BIND_ADDRESS=0.0.0.0
+      - INITIAL_PORT=7001
+      - MASTERS=3
+      - SLAVES_PER_MASTER=1
+    ports:
+      - "7001-7006:7001-7006"
+    volumes:
+      - "./volumes/data/redis/1:/redis-data/7001"
+      - "./volumes/data/redis/2:/redis-data/7002"
+      - "./volumes/data/redis/3:/redis-data/7003"
+      - "./volumes/data/redis/4:/redis-data/7004"
+      - "./volumes/data/redis/5:/redis-data/7005"
+      - "./volumes/data/redis/6:/redis-data/7006"
+      - "./volumes/config/redis/redis-cluster.tmpl:/redis-cluster.tmpl"
+
   ### MySQL
   mysql:
     image: mysql:8
@@ -11,7 +159,7 @@ services:
       MYSQL_USER: test
       MYSQL_PASSWORD: test
     volumes:
-      - /absolute/path/to/your/project/volumes/data/mysql:/var/lib/mysql
+      - ./volumes/data/mysql:/var/lib/mysql
     networks:
       - my_network
 
