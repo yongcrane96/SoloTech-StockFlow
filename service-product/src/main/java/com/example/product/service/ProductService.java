@@ -40,14 +40,14 @@ public class ProductService {
             Product savedProduct = productRepository.saveAndFlush(product);
             return savedProduct;
         }catch (Exception e){
-            log.error("Product 생성 또는 후속 작업 실패. storeId: {}", product.getProductId(), e);
+            log.error("Product 생성 또는 후속 작업 실패. productId: {}", product.getProductId(), e);
 
             // 사가 보상 로직 예시 (간단하게 delete 처리)
             try {
                 productRepository.deleteById(product.getId());
-                log.info("Product 보상 처리 완료 (삭제). storeId: {}", product.getProductId());
+                log.info("Product 보상 처리 완료 (삭제). productId: {}", product.getProductId());
             } catch (Exception compensationEx) {
-                log.error("Product 보상 처리 실패. 수동 개입 필요. storeId: {}", product.getProductId(), compensationEx);
+                log.error("Product 보상 처리 실패. 수동 개입 필요. productId: {}", product.getProductId(), compensationEx);
             }
 
             throw new ProductNotFoundException(product.getProductId());
