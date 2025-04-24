@@ -1,0 +1,8 @@
+{
+  "type": "record",
+  "name": "DeleteProductEvent",
+  "namespace": "com.example.kafka",
+  "fields": [
+    { "name": "productId", "type": "string" }
+  ]
+}
