@@ -1,2 +1,2 @@
 rootProject.name = 'StockFlow '
-include 'service-kafka', 'service-redis', 'service-gateway', 'service-store', 'service-product', 'service-order', 'service-stock'
+include 'service-kafka', 'service-redis', 'service-gateway', 'service-store', 'service-product', 'service-order', 'service-stock', 'service-payment'
