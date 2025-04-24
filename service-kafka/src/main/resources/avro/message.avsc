@@ -1,0 +1,9 @@
+{
+  "type": "record",
+  "name": "Event",
+  "namespace": "com.example.kafka",
+  "fields": [
+    { "name": "id", "type": "int" },
+    { "name": "message", "type": "string"}
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "type": "record",
+  "name": "CreateProductEvent",
+  "namespace": "com.example.kafka",
+  "fields": [
+    { "name": "id", "type": "long" },
+    { "name": "productId", "type": "string" },
+    { "name": "name", "type": "string" },
+    { "name": "price", "type": "long" },
+    { "name": "content", "type": "string" }
+  ]
+}

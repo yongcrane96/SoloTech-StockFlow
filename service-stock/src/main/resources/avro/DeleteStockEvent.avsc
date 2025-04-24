@@ -1,0 +1,8 @@
+{
+  "type": "record",
+  "name": "DeleteStockEvent",
+  "namespace": "com.example.kafka",
+  "fields": [
+    { "name": "stockId", "type": "string" }
+  ]
+}

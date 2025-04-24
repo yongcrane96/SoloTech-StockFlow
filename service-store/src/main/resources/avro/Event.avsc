@@ -1,0 +1,19 @@
+{
+  "type": "record",
+  "name": "Event",
+  "namespace": "com.example.kafka",
+  "fields": [
+    { "name": "eventType", "type": "string" },
+    {
+      "name": "event",
+      "type": [
+        "CreateStoreEvent",
+        "DeleteStoreEvent",
+        "StoreCreatedEvent",
+        "StoreDeletedEvent",
+        "StoreUpdatedEvent",
+        "UpdateStoreEvent"
+      ]
+    }
+  ]
+}
