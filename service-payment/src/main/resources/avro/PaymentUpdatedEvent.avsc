@@ -1,0 +1,18 @@
+{
+  "type": "record",
+  "name": "PaymentUpdatedEvent",
+  "namespace": "com.example.kafka",
+  "fields": [
+    { "name": "paymentId", "type": "string" },
+    { "name": "amount", "type": "long" },
+    { "name": "paymentMethod", "type": "string" },
+    {
+            "name": "paymentStatus",
+            "type": {
+                "type": "enum",
+                "name": "Status",
+                "symbols": ["PENDING", "PAID", "CANCELED", "SUCCESS"]
+            }
+    }
+  ]
+}
