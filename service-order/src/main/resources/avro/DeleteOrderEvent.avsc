@@ -1,0 +1,8 @@
+{
+  "type": "record",
+  "name": "DeleteOrderEvent",
+  "namespace": "com.example.kafka",
+  "fields": [
+    { "name": "orderId", "type": "string" }
+  ]
+}
