@@ -1,0 +1,9 @@
+{
+  "type": "record",
+  "name": "StockDecreasedEvent",
+  "namespace": "com.example.kafka",
+  "fields": [
+    { "name": "stockId", "type": "string" },
+    { "name": "quantity", "type": "long" }
+  ]
+}
