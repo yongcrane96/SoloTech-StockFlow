@@ -1,0 +1,8 @@
+{
+  "type": "record",
+  "name": "DeletePaymentEvent",
+  "namespace": "com.example.kafka",
+  "fields": [
+    { "name": "paymentId", "type": "string" }
+  ]
+}
