@@ -42,6 +42,11 @@ public class StockController extends BaseRestController {
         return snowflakeId;
     }
 
+    @GetMapping("/product/{productId}")
+    public Stock getStockByProductId(@PathVariable String productId) {
+        return stockService.getStockByProductId(productId);
+    }
+
     @GetMapping("{stockId}")
     public ResponseEntity<?> getStock(@PathVariable String stockId){
         log.info("Get stock by id: {}", stockId);

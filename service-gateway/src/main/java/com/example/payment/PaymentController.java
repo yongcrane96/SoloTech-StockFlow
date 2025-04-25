@@ -16,7 +16,7 @@ public class PaymentController {
     private final PaymentFeignClient paymentFeignClient;
 
     @PostMapping
-    public String createPayment(@RequestBody PaymentRequest request) {
+    public PaymentResponse createPayment(@RequestBody PaymentRequest request) {
         log.info("Create payment request: {}", request);
         return paymentFeignClient.createPayment(request);
     }

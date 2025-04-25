@@ -63,6 +63,9 @@ public class PaymentController {
                 dto.getPaymentMethod(),
                 (Status) dto.getPaymentStatus()
         );
+
+        eventProducer.sendCommandEvent(event);
+
         return true;
     }
 

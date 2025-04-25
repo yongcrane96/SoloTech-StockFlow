@@ -1,7 +1,12 @@
 package com.example.order.controller;
 
+import cn.hutool.core.lang.Snowflake;
+import com.example.kafka.CreateOrderEvent;
+import com.example.kafka.Status;
+import com.example.kafka.UpdateOrderEvent;
 import com.example.order.dto.OrderDto;
 import com.example.order.entity.Order;
+import com.example.order.kafka.OrderEventProducer;
 import com.example.order.service.OrderService;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import io.swagger.v3.oas.annotations.Operation;
@@ -20,13 +25,31 @@ import org.springframework.web.bind.annotation.*;
 public class OrderController {
 
     private final OrderService orderService;
-    
+    final OrderEventProducer eventProducer;
     // C - R - U - D 형태로 작성
-    
+
     @PostMapping
     @Operation(summary = "주문 생성", description = "주문을 생성하고 생성된 주문 객체를 반환합니다.")
-    public Order createOrder(@RequestBody OrderDto dto) {
-        return orderService.createOrder(dto);
+    public long createOrder(@RequestBody OrderDto dto)
+    {
+        Snowflake snowflake = new Snowflake(1,1);
+        long snowflakeId = snowflake.nextId();
+        CreateOrderEvent event = new CreateOrderEvent(
+                snowflakeId,
+                dto.getOrderId(),
+                dto.getStoreId(),
+                dto.getProductId(),
+                dto.getStockId(),
+                dto.getPaymentId(),
+                dto.getQuantity(),
+                dto.getAmount(),
+                dto.getPaymentMethod(),
+                (Status) dto.getPaymentStatus()
+        );
+
+        eventProducer.sendCommandEvent(event);
+
+        return snowflakeId;
     }
 
     @GetMapping("/{orderId}")
@@ -34,11 +57,22 @@ public class OrderController {
     public Order readOrder(@PathVariable String orderId) {
         return orderService.readOrder(orderId);
     }
-    
+
     @PutMapping("{orderId}")
     @Operation(summary = "주문 수정", description = "주문 정보를 수정합니다.")
-    public Order updateOrder(@PathVariable String orderId, @RequestBody OrderDto dto) throws JsonMappingException {
-        return orderService.updateOrder(orderId, dto);
+    public boolean updateOrder(@PathVariable String orderId, @RequestBody OrderDto dto) throws JsonMappingException {
+
+        UpdateOrderEvent event = new UpdateOrderEvent(
+                orderId,
+                dto.getStoreId(),
+                dto.getProductId(),
+                dto.getStockId(),
+                dto.getQuantity()
+        );
+
+        eventProducer.sendCommandEvent(event);
+
+        return true;
     }
 
     @DeleteMapping("{orderId}")

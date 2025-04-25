@@ -67,6 +67,12 @@ public class StockService {
         return dbStock;
     }
 
+    @Cached(prefix = "stock:", key = "#stockId", ttl = 3600, type = CacheType.READ, cacheNull = true)
+    public Stock getStockByProductId(String productId){
+        return stockRepository.findByProductId(productId)
+                .orElseThrow(() -> new StockNotFoundException("No stock for product: " + productId));
+    }
+
     @Cached(prefix = "stock:", key = "#result.stockId", ttl = 3600, type = CacheType.WRITE, cacheNull = true)
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public Stock updateStock(UpdateStockEvent event) {

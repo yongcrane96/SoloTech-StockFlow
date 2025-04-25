@@ -16,6 +16,11 @@ public interface StockFeignClient {
     @GetMapping("/api/stock/{stockId}")
     StockResponse getStock(@PathVariable("stockId") String stockId);
 
+
+    // [R2] 단건 품목 조회
+    @GetMapping("/api/stock/product/{productId}")
+    StockResponse getStockByProductId(@PathVariable("productId") String productId);
+
     // [U] Update
     @PutMapping("/api/stock/{stockId}")
     boolean updateStocks(

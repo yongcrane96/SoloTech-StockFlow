@@ -29,6 +29,7 @@ public class Order {
     private String storeId;
     private String productId;
     private String stockId;
+    private String paymentId;
     private Long quantity;
 
     // 🔽 결제 관련 필드 추가
@@ -39,5 +40,5 @@ public class Order {
     private String paymentMethod;
 
     @Column(nullable = false)
-    private String paymentStatus; // "PENDING", "SUCCESS", "FAILED"
+    private Enum paymentStatus; // "PENDING", "SUCCESS", "FAILED"
 }

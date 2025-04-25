@@ -1,5 +1,6 @@
 package com.example.order.dto;
 
+import com.example.payment.dto.PaymentStatus;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -37,4 +38,11 @@ public class OrderDto {
 
     @Schema(description = "결제 방식", example = "CARD")
     private String paymentMethod;
+
+    @Schema(description = "결제 ID", example = "")
+    private String paymentId;
+
+    @Schema
+    private Enum paymentStatus;
+
 }
