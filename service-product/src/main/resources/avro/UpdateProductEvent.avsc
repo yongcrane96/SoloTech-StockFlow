@@ -1,0 +1,11 @@
+{
+  "type": "record",
+  "name": "UpdateProductEvent",
+  "namespace": "com.example.kafka",
+  "fields": [
+    { "name": "productId", "type": "string" },
+    { "name": "name", "type": "string" },
+    { "name": "price", "type": "long" },
+    { "name": "content", "type": "string" }
+  ]
+}
