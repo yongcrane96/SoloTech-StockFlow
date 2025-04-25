@@ -1,0 +1,10 @@
+{
+  "type": "record",
+  "name": "StoreUpdatedEvent",
+  "namespace": "com.example.kafka",
+  "fields": [
+    { "name": "id", "type": "long" },
+    { "name": "storeId", "type": "string" },
+    { "name": "storeName", "type": "string" }
+  ]
+}
