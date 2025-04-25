@@ -1,0 +1,16 @@
+spring:
+  kafka:
+    bootstrap-servers: localhost:10000, localhost:10001, localhost:10002
+    consumer:
+      group-id: my-group
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      properties:
+        batch:
+          linger:
+            ms: 10
+          size: 16

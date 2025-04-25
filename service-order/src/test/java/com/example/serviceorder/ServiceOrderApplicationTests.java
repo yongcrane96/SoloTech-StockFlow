@@ -1,10 +1,10 @@
-package com.example;
+package com.example.serviceorder;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
 @SpringBootTest
-class ServiceKafkaApplicationTests {
+class ServiceOrderApplicationTests {
 
     @Test
     void contextLoads() {
