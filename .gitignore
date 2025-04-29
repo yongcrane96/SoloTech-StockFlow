@@ -1,5 +1,19 @@
+# Gradle 관련
 .gradle/
-.idea/
-.build/
-/out
 build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# IntelliJ IDEA
+.idea/
+*.iml
+out/
+
+# 로컬 개발 데이터 (예: Docker 볼륨)
+volumes/data/
+
+# 로그 파일
+*.log
+
+# 시스템 파일
+.DS_Store
+Thumbs.db
