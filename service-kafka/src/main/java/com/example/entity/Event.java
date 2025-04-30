@@ -19,6 +19,11 @@ public class Event implements Serializable { // Serializable을 구현함으로�
     private int id;
     private String type;
     private String payload;
+    private String productId;
+    private long quantity;
+    private String stockId;
+    private String paymentId;
+    private String orderId;
 
     public Event() {}
 
@@ -28,9 +33,14 @@ public class Event implements Serializable { // Serializable을 구현함으로�
      * @param type     메시지 유형
      * @param payload  메시지 내용
      */
-    public Event(int id, String type, String payload){
+    public Event(int id, String type, String payload, String productId, long quantity, String stockId, String paymentId, String orderId){
         this.id = id;
         this.type = type;
         this.payload = payload;
+        this.productId = productId;
+        this.quantity = quantity;
+        this.stockId = stockId;
+        this.paymentId = paymentId;
+        this.orderId = orderId;
     }
 }

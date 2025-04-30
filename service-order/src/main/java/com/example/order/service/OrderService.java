@@ -1,12 +1,12 @@
 package com.example.order.service;
 
-import cn.hutool.core.lang.Snowflake;
 import com.example.annotations.Cached;
 import com.example.annotations.RedissonLock;
 import com.example.cache.CacheType;
 import com.example.kafka.CreateOrderEvent;
+import com.example.kafka.DecreaseStockEvent;
+import com.example.kafka.Event;
 import com.example.kafka.UpdateOrderEvent;
-import com.example.order.dto.OrderDto;
 import com.example.order.entity.Order;
 import com.example.order.exception.OrderCreationException;
 import com.example.order.exception.OrderNotFoundException;
@@ -21,14 +21,12 @@ import com.example.product.ProductService;
 import com.example.product.dto.ProductResponse;
 import com.example.stock.StockService;
 import com.example.stock.dto.StockResponse;
-import com.fasterxml.jackson.databind.JsonMappingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
-
 
 /**
  * 주문 서비스
@@ -40,16 +38,15 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class OrderService {
+    private final KafkaTemplate<String, Event> kafkaTemplate;
     private final OrderRepository orderRepository;
     private final ProductService productService;
     private final StockService stockService;
     private final PaymentService paymentService;
 
-    private final ObjectMapper mapper;
-
     @RedissonLock(value = "stock-{productId}", transactional = true)
     @Cached(prefix = "order:", key = "#result.orderId", ttl = 3600, type = CacheType.WRITE, cacheNull = true)
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    @Transactional
     public Order createOrder(CreateOrderEvent event) {
         // 1. 상품 조회
         ProductResponse product = productService.getProduct(event.getProductId());
@@ -63,16 +60,7 @@ public class OrderService {
             throw new StockNotFoundException("Insufficient stock for product: " + event.getProductId());
         }
 
-        // 3. 결제 처리
-        PaymentStatus initialPaymentStatus = PaymentStatus.PENDING;
-        PaymentRequest paymentDto = new PaymentRequest(event.getPaymentId(),event.getOrderId(), event.getAmount(), event.getPaymentMethod(), initialPaymentStatus);
-        PaymentResponse payment = paymentService.createPayment(paymentDto);
-        if (!PaymentStatus.SUCCESS.equals(payment.getPaymentStatus())) {
-            throw new PaymentFailedException("Payment failed for order: " + event.getOrderId());
-        }
-
-        stockService.decreaseStock(event.getProductId(), event.getQuantity());
-
+        //3. 주문 생성 ( 상태 : PENDING )
         Order order = Order.builder()
                 .id(event.getId())
                 .orderId(event.getOrderId())
@@ -87,6 +75,18 @@ public class OrderService {
                 .build();
 
         Order savedOrder = orderRepository.saveAndFlush(order);
+
+
+        // 4. 결제 처리 (PENDING 상태로 저장 )
+        PaymentStatus initialPaymentStatus = PaymentStatus.PENDING;
+        PaymentRequest paymentDto = new PaymentRequest(event.getPaymentId(),event.getOrderId(), event.getAmount(), event.getPaymentMethod(), initialPaymentStatus);
+        PaymentResponse payment = paymentService.createPayment(paymentDto);
+        if (!PaymentStatus.SUCCESS.equals(payment.getPaymentStatus())) {
+            throw new PaymentFailedException("Payment failed for order: " + event.getOrderId());
+        }
+
+        DecreaseStockEvent decreaseStockEvent = new DecreaseStockEvent(event.getStockId(), event.getQuantity());
+        kafkaTemplate.send("order-events", new Event("DecreaseStock", decreaseStockEvent));
 
         return savedOrder;
     }
@@ -109,8 +109,9 @@ public class OrderService {
                 .orElseThrow(()-> new EntityNotFoundException("Order not found: " + orderId));
 
         order.setQuantity(event.getQuantity());
-        Order savedOrder =  orderRepository.save(order);
-        return savedOrder;
+        Order savedOrder =  orderRepository.saveAndFlush(order); // 바로 return 해주는 부분이라 save가 아닌 saveAndFlush 사용
+
+       return savedOrder;
     }
 
 
