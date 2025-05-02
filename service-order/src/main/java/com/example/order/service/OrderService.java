@@ -23,6 +23,7 @@ import com.example.stock.StockService;
 import com.example.stock.dto.StockResponse;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -35,6 +36,7 @@ import org.springframework.transaction.annotation.Transactional;
  * @author  yhkim
  */
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class OrderService {
@@ -74,21 +76,27 @@ public class OrderService {
                 .paymentStatus(PaymentStatus.valueOf(event.getPaymentStatus().name())) // enum 변환
                 .build();
 
-        Order savedOrder = orderRepository.saveAndFlush(order);
+        orderRepository.saveAndFlush(order);
 
+        try{
+            // 4. 재고 차감 처리 (예외 발생시 자동 롤백)
+            stockService.decreaseStock(event.getStockId(), event.getQuantity());
 
-        // 4. 결제 처리 (PENDING 상태로 저장 )
-        PaymentStatus initialPaymentStatus = PaymentStatus.PENDING;
-        PaymentRequest paymentDto = new PaymentRequest(event.getPaymentId(),event.getOrderId(), event.getAmount(), event.getPaymentMethod(), initialPaymentStatus);
-        PaymentResponse payment = paymentService.createPayment(paymentDto);
-        if (!PaymentStatus.SUCCESS.equals(payment.getPaymentStatus())) {
-            throw new PaymentFailedException("Payment failed for order: " + event.getOrderId());
+            PaymentRequest paymentRequest = new PaymentRequest(
+                    event.getPaymentId(),
+                    event.getOrderId(),
+                    event.getAmount(),
+                    event.getPaymentMethod(),
+                    PaymentStatus.PENDING
+            );
+            kafkaTemplate.send("payment-events", new Event("RequestPayment", paymentRequest));
+        } catch (Exception e) {
+            log.error("재고 차감 실패로 주문 취소 처리", e);
+            order.cancel(); // 상태만 변경하거나 DB에서 제거
+            orderRepository.save(order);
+            throw new OrderCreationException("재고 차감 실패로 주문 생성 중단");
         }
-
-        DecreaseStockEvent decreaseStockEvent = new DecreaseStockEvent(event.getStockId(), event.getQuantity());
-        kafkaTemplate.send("order-events", new Event("DecreaseStock", decreaseStockEvent));
-
-        return savedOrder;
+        return order;
     }
 
 

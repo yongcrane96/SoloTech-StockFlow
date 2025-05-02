@@ -31,6 +31,7 @@ public class Order {
     private String stockId;
     private String paymentId;
     private Long quantity;
+    private OrderStatus orderStatus;
 
     // 🔽 결제 관련 필드 추가
     @Column(nullable = false)
@@ -41,4 +42,8 @@ public class Order {
 
     @Column(nullable = false)
     private Enum paymentStatus; // "PENDING", "SUCCESS", "FAILED"
+
+    public void cancel(){
+        this.orderStatus = OrderStatus.CANCELED;
+    }
 }

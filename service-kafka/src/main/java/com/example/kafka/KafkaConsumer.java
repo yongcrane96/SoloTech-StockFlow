@@ -2,6 +2,7 @@ package com.example.kafka;
 
 import com.example.order.entity.OrderStatus;
 import com.example.order.repository.OrderRepository;
+import com.example.payment.entity.Payment;
 import com.example.payment.service.PaymentService;
 import com.example.stock.service.StockService;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -29,32 +30,44 @@ public class KafkaConsumer {
     private final ObjectMapper objectMapper;
 
     // Choreography 기반 Saga + Kafka consumer
-    @KafkaListener(topics = "order-events", groupId = "order-service")
+    @KafkaListener(topics = "payment-events", groupId = "order-service")
     public void listen(ConsumerRecord<String, Event> record) {
         Event event = record.value();
 
         switch (event.getType()) {
-            case "DecreaseStock":
-                handleDecreaseStockEvent(event);
+            case "PaymentSuccess":
+                handlePaymentSuccess(event);
+                break;
+            case "PaymentFail":
+                handlePaymentFail(event);
                 break;
         }
     }
 
-    private void handleDecreaseStockEvent(Event event){
-        try{
-            DecreaseStockEvent decreaseStockEvent = objectMapper.readValue(event.getPayload(), DecreaseStockEvent.class);
-            // 재고 감소 처리
-            stockService.decreaseStock(decreaseStockEvent);
+    private void handlePaymentSuccess(Event event) {
+        try {
+            Payment payload = objectMapper.readValue(event.getPayload(), Payment.class);
+            orderRepository.updateOrderStatus(payload.getOrderId(), OrderStatus.SUCCESS);
+            log.info("결제 성공 처리 완료 - orderId: {}", payload.getOrderId());
+        } catch (Exception e) {
+            log.error("결제 성공 처리 실패", e);
+        }
+    }
 
-            // 재고 감소 성공 후, 결제 성공 이벤트 발행
-            paymentService.confirmPayment(event.getPaymentId());
-            // 결제 성공 시 주문 상태 변경
-            orderRepository.updateOrderStatus(event.getOrderId(), OrderStatus.SUCCESS);
+    private void handlePaymentFail(Event event) {
+        try {
+            Payment payload = objectMapper.readValue(event.getPayload(), Payment.class);
 
-        }catch (Exception e){
-            log.error("재고 감소 처리 중 예외 발생" , e);
-            paymentService.cancelPayment(event.getPayload());
-            orderRepository.updateOrderStatus(event.getOrderId(), OrderStatus.CANCELED);
+            // 결제 실패 → 주문 취소 + 재고 복구
+            orderRepository.updateOrderStatus(payload.getOrderId(), OrderStatus.CANCELED);
+
+            // 재고 복구
+            IncreaseStockEvent increaseStockEvent = new IncreaseStockEvent(event.getStockId(), event.getQuantity());
+            stockService.increaseStock(increaseStockEvent);  // 재고 복구 처리
+
+            log.info("결제 실패 처리 및 재고 복구 완료 - orderId: {}", payload.getOrderId());
+        } catch (Exception e) {
+            log.error("결제 실패 처리 중 예외", e);
         }
     }
 }

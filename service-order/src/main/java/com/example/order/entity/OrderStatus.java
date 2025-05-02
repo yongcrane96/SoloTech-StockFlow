@@ -1,8 +1,8 @@
 package com.example.order.entity;
 
 public enum OrderStatus {
-    PENDING,   // 결제 대기
-    PAID,      // 결제 완료
-    CANCELED,   // 결제 취소
+    PENDING,   // 제품 대기
+    PAID,      // 제품 완료
+    CANCELED,   // 제품 취소
     SUCCESS
 }
