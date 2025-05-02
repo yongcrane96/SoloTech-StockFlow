@@ -8,11 +8,13 @@ import com.example.kafka.DecreaseStockEvent;
 import com.example.kafka.Event;
 import com.example.kafka.UpdateOrderEvent;
 import com.example.order.entity.Order;
+import com.example.order.entity.OutboxEvent;
 import com.example.order.exception.OrderCreationException;
 import com.example.order.exception.OrderNotFoundException;
 import com.example.order.exception.PaymentFailedException;
 import com.example.order.exception.StockNotFoundException;
 import com.example.order.repository.OrderRepository;
+import com.example.order.repository.OutboxEventRepository;
 import com.example.payment.PaymentService;
 import com.example.payment.dto.PaymentRequest;
 import com.example.payment.dto.PaymentResponse;
@@ -21,6 +23,8 @@ import com.example.product.ProductService;
 import com.example.product.dto.ProductResponse;
 import com.example.stock.StockService;
 import com.example.stock.dto.StockResponse;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -28,6 +32,8 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
 
 /**
  * 주문 서비스
@@ -45,11 +51,13 @@ public class OrderService {
     private final ProductService productService;
     private final StockService stockService;
     private final PaymentService paymentService;
+    private final ObjectMapper objectMapper;
+    private final OutboxEventRepository outboxEventRepository;
 
     @RedissonLock(value = "stock-{productId}", transactional = true)
     @Cached(prefix = "order:", key = "#result.orderId", ttl = 3600, type = CacheType.WRITE, cacheNull = true)
     @Transactional
-    public Order createOrder(CreateOrderEvent event) {
+    public Order createOrder(CreateOrderEvent event) throws JsonProcessingException {
         // 1. 상품 조회
         ProductResponse product = productService.getProduct(event.getProductId());
         if (product == null) {
@@ -78,6 +86,15 @@ public class OrderService {
 
         orderRepository.saveAndFlush(order);
 
+        // outbox 이벤트 저장
+        OutboxEvent outboxEvent = new OutboxEvent();
+        outboxEvent.setAggregateId(order.getOrderId());
+        outboxEvent.setType("OrderCreated");
+        outboxEvent.setPayload(objectMapper.writeValueAsString(order));  // 주문 정보 (JSON)
+        outboxEvent.setPublished(false);
+        outboxEvent.setCreatedAt(LocalDateTime.now());
+        outboxEventRepository.save(outboxEvent);
+
         try{
             // 4. 재고 차감 처리 (예외 발생시 자동 롤백)
             stockService.decreaseStock(event.getStockId(), event.getQuantity());
@@ -90,6 +107,10 @@ public class OrderService {
                     PaymentStatus.PENDING
             );
             kafkaTemplate.send("payment-events", new Event("RequestPayment", paymentRequest));
+
+            outboxEvent.setPublished(true);
+            outboxEventRepository.save(outboxEvent);
+
         } catch (Exception e) {
             log.error("재고 차감 실패로 주문 취소 처리", e);
             order.cancel(); // 상태만 변경하거나 DB에서 제거

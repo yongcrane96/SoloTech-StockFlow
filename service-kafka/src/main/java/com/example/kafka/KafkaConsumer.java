@@ -2,6 +2,7 @@ package com.example.kafka;
 
 import com.example.order.entity.OrderStatus;
 import com.example.order.repository.OrderRepository;
+import com.example.order.repository.OutboxEventRepository;
 import com.example.payment.entity.Payment;
 import com.example.payment.service.PaymentService;
 import com.example.stock.service.StockService;
@@ -28,6 +29,28 @@ public class KafkaConsumer {
     private final PaymentService paymentService;
     private final StockService stockService;
     private final ObjectMapper objectMapper;
+    private final OutboxEventRepository outboxEventRepository;
+
+    @KafkaListener(topics = "order-events", groupId = "order-consumer-group")
+    public void consumeOrderEvent(String message) {
+        try {
+            Event event = objectMapper.readValue(message, Event.class);
+            log.info("Kafka 메시지 수신: {}", event);
+
+            // ✅ 멱등성 유지: 이미 처리된 이벤트인지 확인
+            if (outboxEventRepository.existsByAggregateIdAndPublishedTrue(event.getOrderId(), true)) {
+                log.warn("이미 처리된 이벤트 - id: {}", event.getOrderId());
+                return;
+            }
+
+            // ✅ 메시지 처리 로직 추가 (예: 결제 승인, 주문 상태 업데이트 등)
+
+            log.info("이벤트 처리 완료 - id: {}", event.getOrderId());
+
+        } catch (Exception e) {
+            log.error("Kafka 메시지 처리 실패", e);
+        }
+    }
 
     // Choreography 기반 Saga + Kafka consumer
     @KafkaListener(topics = "payment-events", groupId = "order-service")
