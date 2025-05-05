@@ -1,7 +1,7 @@
 package com.example.kafka;
 
 import com.example.order.OrderFeignClient;
-import com.example.stock.service.StockService;
+import com.example.stock.StockFeignClient;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import com.example.entity.Event;
@@ -23,10 +23,10 @@ import io.github.resilience4j.retry.annotation.Retry;
 @RequiredArgsConstructor
 @Slf4j
 public class KafkaConsumer {
-    private final StockService stockService;
     private final ObjectMapper objectMapper;
     private final OrderFeignClient orderFeignClient;
     private final KafkaMessageHandler kafkaMessageHandler;
+    private final StockFeignClient stockFeignClient;
 
     @KafkaListener(topics = "order-events", groupId = "order-consumer-group")
     public void consumeOrderEvent(String message) {
@@ -67,14 +67,19 @@ public class KafkaConsumer {
 
     private void handlePaymentFail(Event event) {
         try {
-            // 결제 실패 → 주문 취소 + 재고 복구
             updateOrderStatusWithRetry(event.getOrderId(), "CANCELED");
 
-            // 재고 복구
-            IncreaseStockEvent increaseStockEvent = new IncreaseStockEvent(event.getStockId(), event.getQuantity());
-            stockService.increaseStock(increaseStockEvent);  // 재고 복구 처리
+            boolean result = stockFeignClient.increaseStock(
+                    String.valueOf(event.getStockId()),
+                    event.getQuantity()
+            );
 
-            log.info("결제 실패 처리 및 재고 복구 완료 - orderId: {}", event.getOrderId());
+            if (!result) {
+                log.warn("재고 복구 실패 - stockId: {}, quantity: {}", event.getStockId(), event.getQuantity());
+            } else {
+                log.info("재고 복구 성공 - orderId: {}", event.getOrderId());
+            }
+
         } catch (Exception e) {
             log.error("결제 실패 처리 중 예외", e);
         }

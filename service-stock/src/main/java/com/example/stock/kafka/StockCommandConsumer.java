@@ -29,6 +29,8 @@ public class StockCommandConsumer {
             handleUpdateStock((UpdateStockEvent) event);
         } else if (event instanceof DecreaseStockEvent) {
             handleDeceaseStock((DecreaseStockEvent) event);
+        } else if (event instanceof IncreaseStockEvent) {
+            handleIncreaseStock((IncreaseStockEvent) event);  // 추가된 부분
         } else if (event instanceof DeleteStockEvent) {
             handleDeleteStock((DeleteStockEvent) event);
         } else {
@@ -112,6 +114,28 @@ public class StockCommandConsumer {
 
         } catch (Exception e) {
             log.error("[CommandConsumer] Error in handleDeleteStock: ", e);
+        }
+    }
+
+    private void handleIncreaseStock(IncreaseStockEvent event) {
+        try {
+            log.info("[CommandConsumer] Increasing stock: {}", event);
+
+            // 재고 증가 처리
+            Stock stock = stockService.increaseStock(event);
+
+            // 결과 이벤트 생성
+            StockUpdatedEvent result = new StockUpdatedEvent(
+                    stock.getId(),
+                    stock.getStockId(),
+                    stock.getStoreId(),
+                    stock.getProductId(),
+                    stock.getStock()
+            );
+            eventProducer.sendResultEvent(result);
+
+        } catch (Exception e) {
+            log.error("[CommandConsumer] Error in handleIncreaseStock: ", e);
         }
     }
 }

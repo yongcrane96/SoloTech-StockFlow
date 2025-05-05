@@ -35,6 +35,12 @@ public interface StockFeignClient {
             @PathVariable("quantity") long quantity
     );
 
+    @PutMapping("/api/stock/{stockId}/increase/{quantity}")
+    boolean increaseStock(
+            @PathVariable("stockId") String stockId,
+            @PathVariable("quantity") long quantity
+    );
+
     // [D] Delete
     @DeleteMapping("/api/stock/{stockId}")
     boolean deleteStock(@PathVariable("stockId") String stockId);
