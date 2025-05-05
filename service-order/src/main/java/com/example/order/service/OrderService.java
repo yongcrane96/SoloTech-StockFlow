@@ -8,12 +8,12 @@ import com.example.kafka.Event;
 import com.example.kafka.UpdateOrderEvent;
 import com.example.order.entity.Order;
 import com.example.order.entity.OrderStatus;
-import com.example.order.entity.OutboxEvent;
 import com.example.order.exception.OrderCreationException;
 import com.example.order.exception.OrderNotFoundException;
 import com.example.order.exception.StockNotFoundException;
 import com.example.order.repository.OrderRepository;
-import com.example.order.repository.OutboxEventRepository;
+import com.example.outbox.OutboxEvent;
+import com.example.outbox.OutboxEventRepository;
 import com.example.payment.PaymentService;
 import com.example.payment.dto.PaymentRequest;
 import com.example.payment.dto.PaymentStatus;
@@ -84,13 +84,11 @@ public class OrderService {
 
         orderRepository.saveAndFlush(order);
 
-        // outbox 이벤트 저장
-        OutboxEvent outboxEvent = new OutboxEvent();
-        outboxEvent.setAggregateId(order.getOrderId());
-        outboxEvent.setType("OrderCreated");
-        outboxEvent.setPayload(objectMapper.writeValueAsString(order));  // 주문 정보 (JSON)
-        outboxEvent.setPublished(false);
-        outboxEvent.setCreatedAt(LocalDateTime.now());
+        OutboxEvent outboxEvent = OutboxEvent.create(
+                order.getOrderId(),
+                "OrderCreated",
+                objectMapper.writeValueAsString(order)
+        );
         outboxEventRepository.save(outboxEvent);
 
         try {

@@ -1,7 +1,7 @@
 package com.example.kafka;
 
 import com.example.order.OrderFeignClient;
-import com.example.order.repository.OutboxEventRepository;
+import com.example.outbox.OutboxEventRepository;
 import com.example.stock.service.StockService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;

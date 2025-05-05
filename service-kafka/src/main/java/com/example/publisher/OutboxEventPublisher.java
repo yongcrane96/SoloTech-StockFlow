@@ -1,8 +1,8 @@
 package com.example.publisher;
 
 import com.example.entity.Event;
-import com.example.order.entity.OutboxEvent;
-import com.example.order.repository.OutboxEventRepository;
+import com.example.outbox.OutboxEvent;
+import com.example.outbox.OutboxEventRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

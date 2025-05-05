@@ -1,4 +1,4 @@
-package com.example.order.entity;
+package com.example.outbox;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -24,5 +24,15 @@ public class OutboxEvent {
 
     public void published(){
         this.published = true;
+    }
+
+    public static OutboxEvent create(String aggregateId, String type, String payload) {
+        OutboxEvent event = new OutboxEvent();
+        event.aggregateId = aggregateId;
+        event.type = type;
+        event.payload = payload;
+        event.published = false;
+        event.createdAt = LocalDateTime.now();
+        return event;
     }
 }
