@@ -151,7 +151,6 @@ public class OrderService {
     public void updateOrderStatus(String orderId, OrderStatus status) {
         Order order = orderRepository.findByOrderId(orderId)
                 .orElseThrow(() -> new OrderNotFoundException("Order not found : " + orderId));
-
         order.updateStatus(status);
     }
 }

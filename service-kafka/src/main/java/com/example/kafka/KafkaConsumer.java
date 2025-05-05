@@ -1,7 +1,6 @@
 package com.example.kafka;
 
 import com.example.order.OrderFeignClient;
-import com.example.outbox.OutboxEventRepository;
 import com.example.stock.service.StockService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -26,8 +25,8 @@ import io.github.resilience4j.retry.annotation.Retry;
 public class KafkaConsumer {
     private final StockService stockService;
     private final ObjectMapper objectMapper;
-    private final OutboxEventRepository outboxEventRepository;
     private final OrderFeignClient orderFeignClient;
+    private final KafkaMessageHandler kafkaMessageHandler;
 
     @KafkaListener(topics = "order-events", groupId = "order-consumer-group")
     public void consumeOrderEvent(String message) {
@@ -35,15 +34,7 @@ public class KafkaConsumer {
             Event event = objectMapper.readValue(message, Event.class);
             log.info("Kafka 메시지 수신: {}", event);
 
-            // ✅ 멱등성 유지: 이미 처리된 이벤트인지 확인
-            if (outboxEventRepository.existsByAggregateIdAndPublishedTrue(event.getOrderId(), true)) {
-                log.warn("이미 처리된 이벤트 - id: {}", event.getOrderId());
-                return;
-            }
-
-            // ✅ 메시지 처리 로직 추가 (예: 결제 승인, 주문 상태 업데이트 등)
-
-            log.info("이벤트 처리 완료 - id: {}", event.getOrderId());
+            kafkaMessageHandler.handleEventAsync(event); // ✅ 비동기로 처리
 
         } catch (Exception e) {
             log.error("Kafka 메시지 처리 실패", e);

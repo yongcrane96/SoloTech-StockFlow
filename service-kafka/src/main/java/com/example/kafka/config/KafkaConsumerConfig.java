@@ -21,7 +21,6 @@ import java.util.Map;
  * @author  yhkim
  */
 
-@Enabled
 @Configuration
 public class KafkaConsumerConfig {
     @Bean
@@ -40,6 +39,10 @@ public class KafkaConsumerConfig {
         ConcurrentKafkaListenerContainerFactory<String, Event> factory =
                 new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(consumerFactory());
+
+        // ✅ 동시 소비 스레드 수 지정
+        factory.setConcurrency(3); // 예: 파티션 수나 처리량에 따라 조절
+
         return factory;
     }
 }
