@@ -4,20 +4,18 @@ import com.example.annotations.Cached;
 import com.example.annotations.RedissonLock;
 import com.example.cache.CacheType;
 import com.example.kafka.CreateOrderEvent;
-import com.example.kafka.DecreaseStockEvent;
 import com.example.kafka.Event;
 import com.example.kafka.UpdateOrderEvent;
 import com.example.order.entity.Order;
+import com.example.order.entity.OrderStatus;
 import com.example.order.entity.OutboxEvent;
 import com.example.order.exception.OrderCreationException;
 import com.example.order.exception.OrderNotFoundException;
-import com.example.order.exception.PaymentFailedException;
 import com.example.order.exception.StockNotFoundException;
 import com.example.order.repository.OrderRepository;
 import com.example.order.repository.OutboxEventRepository;
 import com.example.payment.PaymentService;
 import com.example.payment.dto.PaymentRequest;
-import com.example.payment.dto.PaymentResponse;
 import com.example.payment.dto.PaymentStatus;
 import com.example.product.ProductService;
 import com.example.product.dto.ProductResponse;
@@ -95,7 +93,7 @@ public class OrderService {
         outboxEvent.setCreatedAt(LocalDateTime.now());
         outboxEventRepository.save(outboxEvent);
 
-        try{
+        try {
             // 4. 재고 차감 처리 (예외 발생시 자동 롤백)
             stockService.decreaseStock(event.getStockId(), event.getQuantity());
 
@@ -124,8 +122,8 @@ public class OrderService {
     @Cached(prefix = "order:", key = "#orderId", ttl = 3600, type = CacheType.READ, cacheNull = true)
     public Order readOrder(String orderId) {
         // DB 조회
-         Order dbOrder = orderRepository.findByOrderId(orderId)
-                .orElseThrow(()->new RuntimeException("Order not found: " + orderId));
+        Order dbOrder = orderRepository.findByOrderId(orderId)
+                .orElseThrow(() -> new RuntimeException("Order not found: " + orderId));
         // 캐시에 저장
         return dbOrder;
     }
@@ -135,19 +133,27 @@ public class OrderService {
     public Order updateOrder(UpdateOrderEvent event) {
         String orderId = event.getOrderId();
         Order order = orderRepository.findByOrderId(orderId)
-                .orElseThrow(()-> new EntityNotFoundException("Order not found: " + orderId));
+                .orElseThrow(() -> new EntityNotFoundException("Order not found: " + orderId));
 
         order.setQuantity(event.getQuantity());
-        Order savedOrder =  orderRepository.saveAndFlush(order); // 바로 return 해주는 부분이라 save가 아닌 saveAndFlush 사용
+        Order savedOrder = orderRepository.saveAndFlush(order); // 바로 return 해주는 부분이라 save가 아닌 saveAndFlush 사용
 
-       return savedOrder;
+        return savedOrder;
     }
 
 
     @Cached(prefix = "order:", key = "#orderId", ttl = 3600, type = CacheType.DELETE, cacheNull = true)
     public void deleteOrder(String orderId) {
         Order order = orderRepository.findByOrderId(orderId)
-                .orElseThrow(()-> new OrderNotFoundException("Order not found: " + orderId));
+                .orElseThrow(() -> new OrderNotFoundException("Order not found: " + orderId));
         orderRepository.delete(order);
+    }
+
+    @Transactional
+    public void updateOrderStatus(String orderId, OrderStatus status) {
+        Order order = orderRepository.findByOrderId(orderId)
+                .orElseThrow(() -> new OrderNotFoundException("Order not found : " + orderId));
+
+        order.updateStatus(status);
     }
 }

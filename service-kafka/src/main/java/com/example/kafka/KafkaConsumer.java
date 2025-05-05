@@ -1,10 +1,7 @@
 package com.example.kafka;
 
-import com.example.order.entity.OrderStatus;
-import com.example.order.repository.OrderRepository;
+import com.example.order.OrderFeignClient;
 import com.example.order.repository.OutboxEventRepository;
-import com.example.payment.entity.Payment;
-import com.example.payment.service.PaymentService;
 import com.example.stock.service.StockService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -13,6 +10,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Service;
+import io.github.resilience4j.retry.annotation.Retry;
+
 
 /**
  * Consumer 서비스
@@ -25,11 +24,10 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 @Slf4j
 public class KafkaConsumer {
-    private final OrderRepository orderRepository;
-    private final PaymentService paymentService;
     private final StockService stockService;
     private final ObjectMapper objectMapper;
     private final OutboxEventRepository outboxEventRepository;
+    private final OrderFeignClient orderFeignClient;
 
     @KafkaListener(topics = "order-events", groupId = "order-consumer-group")
     public void consumeOrderEvent(String message) {
@@ -69,9 +67,8 @@ public class KafkaConsumer {
 
     private void handlePaymentSuccess(Event event) {
         try {
-            Payment payload = objectMapper.readValue(event.getPayload(), Payment.class);
-            orderRepository.updateOrderStatus(payload.getOrderId(), OrderStatus.SUCCESS);
-            log.info("결제 성공 처리 완료 - orderId: {}", payload.getOrderId());
+            updateOrderStatusWithRetry(event.getOrderId(), "SUCCESS");
+            log.info("결제 성공 처리 완료 - orderId: {}", event.getOrderId());
         } catch (Exception e) {
             log.error("결제 성공 처리 실패", e);
         }
@@ -79,18 +76,27 @@ public class KafkaConsumer {
 
     private void handlePaymentFail(Event event) {
         try {
-            Payment payload = objectMapper.readValue(event.getPayload(), Payment.class);
-
             // 결제 실패 → 주문 취소 + 재고 복구
-            orderRepository.updateOrderStatus(payload.getOrderId(), OrderStatus.CANCELED);
+            updateOrderStatusWithRetry(event.getOrderId(), "CANCELED");
 
             // 재고 복구
             IncreaseStockEvent increaseStockEvent = new IncreaseStockEvent(event.getStockId(), event.getQuantity());
             stockService.increaseStock(increaseStockEvent);  // 재고 복구 처리
 
-            log.info("결제 실패 처리 및 재고 복구 완료 - orderId: {}", payload.getOrderId());
+            log.info("결제 실패 처리 및 재고 복구 완료 - orderId: {}", event.getOrderId());
         } catch (Exception e) {
             log.error("결제 실패 처리 중 예외", e);
         }
+    }
+
+    @Retry(name = "orderApi", fallbackMethod = "fallbackUpdateOrderStatus")
+    public void updateOrderStatusWithRetry(String orderId, String status) {
+        orderFeignClient.updateOrderStatus(orderId, status);
+    }
+
+    public void fallbackUpdateOrderStatus(String orderId, String status, Exception ex) {
+        log.error("Order 상태 업데이트 실패. 재시도 모두 실패 - orderId: {}, status: {}, 이유: {}",
+                orderId, status, ex.getMessage());
+        // DLQ로 보내거나, DB에 실패 기록 저장 등 후처리 가능
     }
 }

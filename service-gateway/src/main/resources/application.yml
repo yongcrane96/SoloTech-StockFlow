@@ -19,3 +19,13 @@ spring:
           min-idle: 0
   session:
     timeout: 30m
+
+resilience4j:
+  retry:
+    instances:
+      orderApi:  # 이 이름은 @Retry(name = "orderApi")와 매칭됨
+        max-attempts: 3         # 최대 3회 재시도
+        wait-duration: 1s      # 각 재시도 간 대기 시간 (ISO-8601 또는 s/m/h)
+        retry-exceptions:
+          - feign.FeignException
+          - org.springframework.web.client.HttpServerErrorException
