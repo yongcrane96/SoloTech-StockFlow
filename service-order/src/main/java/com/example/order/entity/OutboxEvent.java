@@ -21,4 +21,8 @@ public class OutboxEvent {
     private String payload;      // 이벤트의 페이로드 (JSON 형태)
     private boolean published;   // 메시지가 발행되었는지 여부
     private LocalDateTime createdAt;
+
+    public void published(){
+        this.published = true;
+    }
 }

@@ -32,7 +32,7 @@ public class OutboxEventPublisher {
                 kafkaTemplate.send("order-events", event).get();  // 메시지가 브로커에 정상적으로 전달될 때까지 기다림
 
                 // ✅ Kafka 전송이 성공한 후에만 published 상태 변경
-                outboxEvent.setPublished(true);
+                outboxEvent.published();
                 outboxEventRepository.save(outboxEvent);
 
                 log.info("Kafka 전송 성공 및 Outbox 업데이트 - id: {}", outboxEvent.getId());
