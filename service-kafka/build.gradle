@@ -26,7 +26,6 @@ repositories {
 }
 
 dependencies {
-    implementation project(':service-order')
     implementation project(':service-stock')
     implementation project(':service-gateway')
 

@@ -90,8 +90,7 @@ public class PaymentService {
     public void confirmPayment(String paymentId){
         Payment payment = paymentRepository.findByPaymentId(paymentId)
                 .orElseThrow(() -> new PaymentFailedException("Payment not found: " + paymentId));
-        payment.setPaymentStatus(PaymentStatus.SUCCESS);
-        paymentRepository.save(payment);
+        payment.confirm();
     }
 
     // 결제 실패
@@ -99,10 +98,7 @@ public class PaymentService {
         try{
             Payment payment = paymentRepository.findByPaymentId(paymentId)
                     .orElseThrow(() -> new PaymentFailedException("Payment not found: " + paymentId));
-
-            payment.setPaymentStatus(PaymentStatus.CANCELED);
-            paymentRepository.save(payment);
-
+            payment.cancel();
         } catch (Exception e){
             throw new RuntimeException("Failed to parse event payload for cancelPayment", e);
         }

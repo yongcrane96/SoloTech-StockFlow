@@ -39,4 +39,12 @@ public class Payment {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private Enum paymentStatus;
+
+    public void confirm() {
+        this.paymentStatus = PaymentStatus.SUCCESS;  // ✅ Dirty Checking으로 변경 자동 반영
+    }
+
+    public void cancel() {
+        this.paymentStatus = PaymentStatus.CANCELED;  // ✅ Dirty Checking 적용
+    }
 }
