@@ -31,6 +31,7 @@ public class Order {
     private String stockId;
     private String paymentId;
     private Long quantity;
+    private OrderStatus orderStatus;
 
     // 🔽 결제 관련 필드 추가
     @Column(nullable = false)
@@ -41,4 +42,16 @@ public class Order {
 
     @Column(nullable = false)
     private Enum paymentStatus; // "PENDING", "SUCCESS", "FAILED"
+
+    public void cancel(){
+        this.orderStatus = OrderStatus.CANCELED;
+    }
+
+    public void updateStatus(OrderStatus newStatus) {
+        if (this.orderStatus == OrderStatus.CANCELED || this.orderStatus == OrderStatus.SUCCESS) {
+            throw new IllegalStateException("이미 처리 완료된 주문은 상태를 변경할 수 없습니다.");
+        }
+        this.orderStatus = newStatus;
+    }
+
 }

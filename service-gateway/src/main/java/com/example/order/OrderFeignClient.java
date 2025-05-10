@@ -23,4 +23,6 @@ public interface OrderFeignClient {
     @DeleteMapping("/api/order/{orderId}")
     boolean deleteOrder(@PathVariable("orderId") String orderId);
 
+    @PutMapping("/api/order/{orderId}/status")
+    void updateOrderStatus(@PathVariable("orderId") String orderId, @RequestParam("status") String status);
 }

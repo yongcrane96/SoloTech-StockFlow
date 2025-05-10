@@ -6,11 +6,13 @@ import com.example.kafka.Status;
 import com.example.kafka.UpdateOrderEvent;
 import com.example.order.dto.OrderDto;
 import com.example.order.entity.Order;
+import com.example.order.entity.OrderStatus;
 import com.example.order.kafka.OrderEventProducer;
 import com.example.order.service.OrderService;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import io.swagger.v3.oas.annotations.Operation;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -81,4 +83,11 @@ public class OrderController {
         orderService.deleteOrder(orderId);
         return true;
     }
+
+    @PatchMapping("/{orderId}/status")
+    public ResponseEntity<Void> updateOrderStatus(@PathVariable String orderId, @RequestParam OrderStatus status){
+        orderService.updateOrderStatus(orderId, status);
+        return ResponseEntity.ok().build();
+    }
+
 }

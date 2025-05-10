@@ -5,6 +5,7 @@ import com.example.annotations.RedissonLock;
 import com.example.cache.CacheType;
 import com.example.kafka.CreateStockEvent;
 import com.example.kafka.DecreaseStockEvent;
+import com.example.kafka.IncreaseStockEvent;
 import com.example.kafka.UpdateStockEvent;
 import com.example.stock.dto.StockDto;
 import com.example.stock.entity.Stock;
@@ -94,7 +95,7 @@ public class StockService {
      *  - 캐시 갱신
      *  - Pub/Sub 메시지 발행
      */
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    @Transactional
     @Cached(prefix = "stock:", key = "#result.stockId", ttl = 3600, type = CacheType.WRITE, cacheNull = true)
     @RedissonLock(value = "#{'stock-' + stockId}")
     public Stock decreaseStock(DecreaseStockEvent event) {
@@ -110,6 +111,20 @@ public class StockService {
         return updatedStock;
     }
 
+    @Transactional
+    @Cached(prefix = "stock:", key = "#result.stockId", ttl = 3600, type = CacheType.WRITE, cacheNull = true)
+    @RedissonLock(value = "#{'stock-' + stockId}")
+    public Stock increaseStock(IncreaseStockEvent event) {
+        // 1. 재고 조회
+        Stock stock = stockRepository.findByStockId(event.getStockId())
+                .orElseThrow(() -> new StockNotFoundException("재고를 찾을 수 없습니다. stockId=" + event.getStockId()));
+
+        // 2. 재고 증가
+        stock.increase(event.getQuantity()); // 증가 로직
+
+        // 3. 재고 정보 저장 및 반환
+        return stockRepository.save(stock);
+    }
 
     @Cached(prefix = "stock:", key = "#stockId", ttl = 3600, type = CacheType.DELETE, cacheNull = true)
     public void deleteStock(String stockId) {

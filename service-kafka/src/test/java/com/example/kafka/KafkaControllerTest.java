@@ -13,9 +13,7 @@ import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.times;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-
-class KafkaControllerTest {
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;class KafkaControllerTest {
 
     private MockMvc mockMvc;
 
@@ -25,7 +23,6 @@ class KafkaControllerTest {
     @InjectMocks
     private KafkaController kafkaController;
 
-    // 공통 설정을 위한 변수들
     private Event event;
     private String topic;
     private String key;
@@ -35,22 +32,30 @@ class KafkaControllerTest {
     void setUp() {
         MockitoAnnotations.openMocks(this);
         mockMvc = MockMvcBuilders.standaloneSetup(kafkaController).build();
-        // 공통 초기화 메서드 호출
-        event = setUpEvent(1, "testType", "testPayload");
+
+        event = setUpEvent(1, "testType", "testPayload", "P001", 10L, "S001", "PAY001", "ORD001");
         topic = "testTopic";
         key = "testKey";
-        content = setUpContent(event);  // 공통 content 설정
+        content = setUpContent(event); // 모든 필드를 포함한 JSON 문자열 생성
     }
 
-    private Event setUpEvent(int id, String type, String payload) {
-        return new Event(id, type, payload);
+    private Event setUpEvent(int id, String type, String payload, String productId, long quantity, String stockId, String paymentId, String orderId) {
+        return new Event(id, type, payload, productId, quantity, stockId, paymentId, orderId);
     }
 
     private String setUpContent(Event event) {
-        return "{\"id\":" + event.getId() + ", \"type\":\"" + event.getType() + "\", \"payload\":\"" + event.getPayload() + "\"}";
+        return "{"
+                + "\"id\":" + event.getId()
+                + ",\"type\":\"" + event.getType() + "\""
+                + ",\"payload\":\"" + event.getPayload() + "\""
+                + ",\"productId\":\"" + event.getProductId() + "\""
+                + ",\"quantity\":" + event.getQuantity()
+                + ",\"stockId\":\"" + event.getStockId() + "\""
+                + ",\"paymentId\":\"" + event.getPaymentId() + "\""
+                + ",\"orderId\":\"" + event.getOrderId() + "\""
+                + "}";
     }
 
-    // 공통 mockMvc 요청 메서드
     private void performPostRequest(String url, String content, Object... urlVariables) throws Exception {
         mockMvc.perform(post(url, urlVariables)
                 .contentType("application/json")
@@ -63,14 +68,15 @@ class KafkaControllerTest {
     void sendMessageTest() throws Exception {
         performPostRequest("/api/kafka/send", content);
 
-        verify(kafkaProducer, times(1)).sendMessage("topic", event);
+        verify(kafkaProducer, times(1)).sendMessage(eq("topic"), any(Event.class));
     }
 
     @Test
     @DisplayName("주어진 topic과 key로 메시지 전송 테스트")
     void sendKeyMessageTest() throws Exception {
         performPostRequest("/api/kafka/send/topic/{topic}/key/{key}", content, topic, key);
-        verify(kafkaProducer, times(1)).sendKeyMessage(topic, key, event);
+
+        verify(kafkaProducer, times(1)).sendKeyMessage(eq(topic), eq(key), any(Event.class));
     }
 
     @Test
@@ -78,19 +84,14 @@ class KafkaControllerTest {
     void sendManyMessageTest() throws Exception {
         performPostRequest("/api/kafka/send/many/{topic}", content, topic);
 
-        Mockito.verify(kafkaProducer, times(10000)).sendMessage(eq(topic), any(Event.class));
-
+        verify(kafkaProducer, times(10000)).sendMessage(eq(topic), any(Event.class));
     }
 
     @Test
     @DisplayName("주어진 topic과 key로 여러 메시지 전송 테스트")
     void sendKeyWithMessageTest() throws Exception {
         performPostRequest("/api/kafka/send/many/{topic}/key/{key}", content, topic, key);
+
         verify(kafkaProducer, times(100)).sendKeyMessage(eq(topic), eq(key), any(Event.class));
     }
-
-    //eq Mockito의 매처 기능을 활용 : Equality Matcher => 특정 값이 일치하는지 확인하는데
-    // 매개변수로 전달된 값이 기대한 값과 정확히 동일한지
-    // any()는 어떤 값이든 상관없이 해당 매개변수에 전달된 값이 무엇이든 간에 매칭
-
 }

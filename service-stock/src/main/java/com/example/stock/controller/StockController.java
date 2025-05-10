@@ -4,6 +4,7 @@ import cn.hutool.core.lang.Snowflake;
 import com.example.controller.BaseRestController;
 import com.example.kafka.CreateStockEvent;
 import com.example.kafka.DecreaseStockEvent;
+import com.example.kafka.IncreaseStockEvent;
 import com.example.kafka.UpdateStockEvent;
 import com.example.stock.dto.StockDto;
 import com.example.stock.entity.Stock;
@@ -79,6 +80,17 @@ public class StockController extends BaseRestController {
                 quantity
         );
         eventProducer.sendCommandEvent(event);
+
+        return true;
+    }
+
+    @PutMapping("{stockId}/increase/{quantity}")
+    public boolean increaseStock(@PathVariable String stockId, @PathVariable Long quantity) {
+        IncreaseStockEvent event = new IncreaseStockEvent(
+                stockId,
+                quantity
+        );
+        eventProducer.sendCommandEvent(event);  // Kafka 등으로 이벤트 발행
 
         return true;
     }

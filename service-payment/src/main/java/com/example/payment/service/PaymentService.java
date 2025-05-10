@@ -1,16 +1,13 @@
 package com.example.payment.service;
 
-import cn.hutool.core.lang.Snowflake;
 import com.example.annotations.Cached;
 import com.example.cache.CacheType;
 import com.example.kafka.CreatePaymentEvent;
 import com.example.kafka.UpdatePaymentEvent;
-import com.example.payment.dto.PaymentDto;
 import com.example.payment.entity.Payment;
+import com.example.payment.entity.PaymentStatus;
 import com.example.payment.exception.PaymentFailedException;
 import com.example.payment.repository.PaymentRepository;
-import com.fasterxml.jackson.databind.JsonMappingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -30,8 +27,6 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class PaymentService {
     private final PaymentRepository paymentRepository;
-    private final ObjectMapper mapper;
-    private final Snowflake snowflake;
 
     @Cached(prefix = "payment:", key = "#result.paymentId", ttl = 3600, type = CacheType.WRITE, cacheNull = true)
     @Transactional(propagation = Propagation.REQUIRES_NEW)
@@ -89,5 +84,23 @@ public class PaymentService {
         Payment payment = paymentRepository.findByPaymentId(paymentId)
                 .orElseThrow(() -> new PaymentFailedException("Payment not found: " + paymentId));
         paymentRepository.delete(payment);
+    }
+
+    // 결제 성공 (확정)
+    public void confirmPayment(String paymentId){
+        Payment payment = paymentRepository.findByPaymentId(paymentId)
+                .orElseThrow(() -> new PaymentFailedException("Payment not found: " + paymentId));
+        payment.confirm();
+    }
+
+    // 결제 실패
+    public void cancelPayment(String paymentId){
+        try{
+            Payment payment = paymentRepository.findByPaymentId(paymentId)
+                    .orElseThrow(() -> new PaymentFailedException("Payment not found: " + paymentId));
+            payment.cancel();
+        } catch (Exception e){
+            throw new RuntimeException("Failed to parse event payload for cancelPayment", e);
+        }
     }
 }

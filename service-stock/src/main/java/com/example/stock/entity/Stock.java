@@ -40,4 +40,11 @@ public class Stock {
     @Column(nullable = false)
     private boolean deleted = false; // 기본값 false (소프트 삭제 플래그)
 
+    public void increase(Long quantity) {
+        if (quantity <= 0) {
+            throw new IllegalArgumentException("증가할 수량은 0보다 커야 합니다.");
+        }
+        this.stock += quantity;
+    }
+
 }

@@ -32,6 +32,7 @@ dependencyManagement { // ✅ BOM 추가
 
 dependencies {
     implementation project(':service-gateway')
+    implementation project(':service-kafka')
     // Caffeine 캐시
     implementation 'com.github.ben-manes.caffeine:caffeine:3.1.8'
     implementation 'org.springframework.boot:spring-boot-starter-cache'
