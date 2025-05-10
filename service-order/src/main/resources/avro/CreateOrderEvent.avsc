@@ -1,0 +1,24 @@
+{
+  "type": "record",
+  "name": "CreateOrderEvent",
+  "namespace": "com.example.kafka",
+  "fields": [
+    { "name": "id", "type": "long" },
+    { "name": "orderId", "type": "string" },
+    { "name": "storeId", "type": "string" },
+    { "name": "productId", "type": "string" },
+    { "name": "stockId", "type": "string" },
+    { "name": "paymentId", "type": "string" },
+    { "name": "quantity", "type": "long" },
+    { "name": "amount", "type": "long" },
+    { "name": "paymentMethod", "type": "string" },
+    {
+        "name": "paymentStatus",
+        "type": {
+            "type": "enum",
+            "name": "Status",
+            "symbols": ["PENDING", "PAID", "CANCELED", "SUCCESS"]
+        }
+     }
+  ]
+}

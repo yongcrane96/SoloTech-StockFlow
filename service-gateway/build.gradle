@@ -1,0 +1,45 @@
+plugins {
+    id 'org.springframework.boot' version '3.4.3'
+}
+
+springBoot {
+    mainClass.set('com.example.GatewayApplication') // 실제 메인 클래스 경로 지정
+}
+
+bootJar {
+    archiveFileName = 'service-gateway.jar'
+}
+
+repositories {
+    maven {
+        url 'https://packages.confluent.io/maven/' // 아브로 레포지토리 추가
+    }
+}
+
+//Spirng Cloud 컴포넌트는 버전 충돌 방지를 위해 BOM 등록
+dependencyManagement {
+    imports {
+        mavenBom "org.springframework.cloud:spring-cloud-dependencies:2023.0.0" // 예: spring boot 3.2 기준
+    }
+}
+
+dependencies {
+    // Spring Cloud OpenFeign (Eureka / Spring Cloud Gateway 없어도 가능)
+    // Feign Client
+    implementation 'org.springframework.cloud:spring-cloud-starter-openfeign'
+
+    // Redis 세션 및 인증 캐시용
+    implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+    implementation 'org.springframework.session:spring-session-data-redis'
+
+    // Spring Boot Starter Security
+    implementation 'org.springframework.boot:spring-boot-starter-security'
+    implementation 'io.lettuce:lettuce-core'
+
+    // Web 요청 처리를 위한 Web 의존성 필요
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+
+    // Lombok (선택)
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
+}

@@ -1,0 +1,8 @@
+{
+  "type": "record",
+  "name": "StoreDeletedEvent",
+  "namespace": "com.example.kafka",
+  "fields": [
+    { "name": "storeId", "type": "string" }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "type": "record",
+  "name": "UpdateOrderEvent",
+  "namespace": "com.example.kafka",
+  "fields": [
+    { "name": "orderId", "type": "string" },
+    { "name": "storeId", "type": "string" },
+    { "name": "productId", "type": "string" },
+    { "name": "stockId", "type": "string" },
+    { "name": "quantity", "type": "long" }
+  ]
+}

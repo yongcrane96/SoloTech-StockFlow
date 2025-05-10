@@ -1,0 +1,47 @@
+plugins {
+    id 'org.springframework.boot' version '3.4.3'
+    id 'com.github.davidmc24.gradle.plugin.avro' version '1.9.1' // 아브로 플러그인 추가
+}
+
+springBoot {
+    mainClass.set('com.example.KafkaApplication') // 실제 메인 클래스 경로 지정
+}
+
+bootJar {
+    archiveFileName = 'service-kafka.jar'
+}
+
+generateAvroJava { // Avro 스키마를 기반으로 자바 클래스를 생성하는 Gradle 태스크
+    // Avro 스키마 파일들이 위치한 디렉토리 지정
+    source("src/main/resources/avro")  // Avro 스키마 파일들이 있는 경로를 지정. 'src/main/resources/avro' 폴더 내의 .avsc 파일을 찾음
+
+    // 포함할 Avro 스키마 파일의 패턴을 지정
+    include("**/*.avsc")  // 모든 .avsc 파일을 포함하도록 설정. 이 패턴은 하위 디렉토리의 .avsc 파일도 포함
+}
+
+repositories {
+    maven {
+        url 'https://packages.confluent.io/maven/' // 아브로 레포지토리 추가
+    }
+}
+
+dependencies {
+    implementation project(':service-gateway')
+
+    implementation 'org.springframework.boot:spring-boot-starter'
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+
+    // 추가 의존성이 필요하면 여기에 선언
+    implementation 'org.springframework.kafka:spring-kafka'
+    // https://mvnrepository.com/artifact/io.confluent/kafka-avro-serializer
+    implementation 'io.confluent:kafka-avro-serializer:7.8.0' // 아프로 시리얼라이저
+    // https://mvnrepository.com/artifact/org.apache.avro/avro
+    implementation 'org.apache.avro:avro:1.12.0'
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'// 아파치 아브로
+
+    // Spring Retry 라이브러리 추가
+    implementation 'io.github.resilience4j:resilience4j-spring-boot3:2.1.0'
+    implementation 'io.github.resilience4j:resilience4j-retry:2.1.0'
+
+}
+

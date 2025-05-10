@@ -1,0 +1,66 @@
+plugins {
+    id 'org.springframework.boot' version '3.4.3'
+    id 'io.spring.dependency-management' version '1.1.7'
+    id 'com.github.davidmc24.gradle.plugin.avro' version '1.9.1' // 아브로 플러그인 추가
+}
+
+springBoot {
+    mainClass.set('com.example.OrderApplication') // 실제 메인 클래스 경로 지정
+}
+
+bootJar {
+    archiveFileName = 'service-order.jar'
+}
+
+generateAvroJava { // 아브로 스키마 생성
+    source("src/main/resources/avro")
+    include("**/*.avsc")
+}
+
+repositories {
+    mavenCentral()
+    maven {
+        url 'https://packages.confluent.io/maven/' // 아브로 레포지토리 추가
+    }
+}
+
+dependencyManagement { // ✅ BOM 추가
+    imports {
+        mavenBom "org.springframework.boot:spring-boot-dependencies:3.4.3"
+    }
+}
+
+dependencies {
+    implementation project(':service-gateway')
+    implementation project(':service-kafka')
+    // Caffeine 캐시
+    implementation 'com.github.ben-manes.caffeine:caffeine:3.1.8'
+    implementation 'org.springframework.boot:spring-boot-starter-cache'
+
+    // Redisson
+    implementation 'org.redisson:redisson-spring-boot-starter:3.20.0'
+    implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+
+    // lombok
+    compileOnly 'org.projectlombok:lombok:1.18.28'
+    annotationProcessor 'org.projectlombok:lombok:1.18.28'
+    // Spring Boot Starter
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa:3.4.3'
+    implementation 'org.springframework.kafka:spring-kafka:3.0.9'
+    implementation 'org.springframework.boot:spring-boot-starter-data-redis:3.4.3'
+    implementation 'org.springframework.boot:spring-boot-starter-security:3.4.3'
+    implementation 'org.springframework.boot:spring-boot-starter-actuator:3.4.3'
+    // Avro
+    implementation 'org.apache.avro:avro:1.12.0'
+    // Kafka Avro Serializer
+    implementation 'io.confluent:kafka-avro-serializer:7.8.0'
+
+
+    implementation 'org.springframework.boot:spring-boot-starter-cache'
+    implementation 'org.redisson:redisson-spring-boot-starter'
+    implementation 'com.github.ben-manes.caffeine:caffeine'
+    implementation 'org.springframework.session:spring-session-data-redis'
+    implementation 'cn.hutool:hutool-core:5.8.22'
+    // 통합 테스트 지원
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+}

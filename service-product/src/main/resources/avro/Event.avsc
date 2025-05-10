@@ -1,0 +1,19 @@
+{
+  "type": "record",
+  "name": "Event",
+  "namespace": "com.example.kafka",
+  "fields": [
+    { "name": "eventType", "type": "string" },
+    {
+      "name": "event",
+      "type": [
+        "CreateProductEvent",
+        "DeleteProductEvent",
+        "ProductCreatedEvent",
+        "ProductDeletedEvent",
+        "ProductUpdatedEvent",
+        "UpdateProductEvent"
+      ]
+    }
+  ]
+}
